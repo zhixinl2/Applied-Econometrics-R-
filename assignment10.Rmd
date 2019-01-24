@@ -1,0 +1,171 @@
+---
+title: 'Econ 590 (M2): Assignment 5'
+author: "Zhixin Lin"
+date: "November 18, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+* Total points: 100
+* Due Date: December 4th, 2018 at 10am
+* Hand  in a .html copy on Compass 2G AND a hard copy in class
+* Be succinct and concise in your answers (more words is not always better!).
+
+# Question 1: To cluster or not, that is the question (24 points total)
+
+In questions #1 and #2, we will again (as in Assignment #9) be using the data on state personal income tax revenues  to study the effects of the cut in state corporate, business, and personal income taxes in Kansas in 2012 discussed during lecture.    
+
+As a reminider, in 2012 Kansas passed a large-scale  tax reform that excluded much of business income from individual income taxation.  Proponents argued that supply-side incentives would increase business formation and invenstment, while opponents argued that the economic effects of the law would be too small to overcome the revenue losses.
+
+The goal of this research is to understand how these tax-cuts affected personal income tax revenues.  We can use data to understand who was right in this debate.
+
+```{r}
+
+library(haven)
+library(data.table)
+kansas <- data.frame(read_stata("/Users/kevinlin/Desktop/10/kansasa_wcontrols_fix.dta")) #loading data-set 
+# variables included are:
+##state_name: name of the state
+##state_num: state number
+##year: Year
+##pers_inc_tax_levels: amount of personal income tax collected by the state in levels
+##pers_inc_tax_rel12: amount of income tax collected by the state relative to 2012 revenues (i.e. for year t, this variable is revenues_t/revenues_2012)
+# medinc: median individual income in state
+
+
+```
+
+(a) (6 points) Compute the standard difference in differences estimator of the treatment effect of the tax cuts, using Arkansas, Missouri, and Iowa as the control  group for Kansas.  What is your standard error?
+
+```{r}
+kansas$treatment = 0
+kansas[(kansas$state_name=='Kansas') & (kansas$year>=2012),]
+kansas$treatment[c(253: 256)] = 1
+
+new_data_1 <- kansas[kansas$state_name=='Kansas',]
+new_data_2 <- kansas[kansas$state_name=='Arkansas',]
+new_data_3 <- kansas[kansas$state_name=='Missouri',]
+new_data_4 <- kansas[kansas$state_name=='Iowa',]
+
+new_data <- rbind(new_data_1,new_data_2,new_data_3,new_data_4)
+time<-ifelse(new_data$year>=2012,1,0)
+mod1 <- lm(pers_inc_tax_rel12~as.factor(treatment)+as.factor(state_name)+as.factor(year),data = new_data)
+summary(mod1)
+```
+
+
+(b) (6 points) Compute difference in differences estimator after collapsing (i.e. calculating the mean) to two observations for each state: before and after 2013 (i.e. the average outcome before and after 2013 for each state).  What is the standard error that you get?
+
+```{r}
+before_kansas <- mean(new_data_1$pers_inc_tax_rel12[which(new_data_1$year<2013)])
+after_kansas <- mean(new_data_1$pers_inc_tax_rel12[which(new_data_1$year>=2013)])
+before_arkansas <- mean(new_data_2$pers_inc_tax_rel12[which(new_data_2$year<2013)])
+after_arkansas <- mean(new_data_2$pers_inc_tax_rel12[which(new_data_2$year>=2013)])
+before_missouri <- mean(new_data_3$pers_inc_tax_rel12[which(new_data_3$year<2013)])
+after_missouri <- mean(new_data_3$pers_inc_tax_rel12[which(new_data_3$year>=2013)])
+before_iowa <- mean(new_data_4$pers_inc_tax_rel12[which(new_data_4$year<2013)])
+after_iowa <- mean(new_data_4$pers_inc_tax_rel12[which(new_data_4$year>=2013)])
+
+collapsed_data <- data.frame(average=c(before_kansas,after_kansas,
+                                          before_arkansas,after_arkansas,
+                                          before_missouri,after_missouri,
+                                          before_iowa,after_iowa),
+                             state_new=c(1,1,2,2,3,3,4,4),
+                             treatment_new=c(0,1,rep(0,6)),
+                             year_new=c(rep(0:1,4)))
+
+mod2 <- lm(average ~ as.factor(state_new)+as.factor(treatment_new)+as.factor(year_new), data=collapsed_data)
+summary(mod2)
+```
+
+
+(c) (6 points) Compute the standard difference in differences estimator again, but this time with a cluster robust standard error.  What is the standard error you get?
+
+```{r}
+
+library(estimatr)
+lmro <- lm_robust(pers_inc_tax_rel12~as.factor(treatment)+as.factor(state_name)+as.factor(year), data = new_data,  se_type = "stata")
+summary(lmro)
+```
+
+(d) (6 points) How do the standard errors you get in parts (a)-(c) compare?  Which do you prefer (if any)?  Why?
+
+* (a)gives us the smallest SE,while (c) gives us the largest SE out of three models, (b) gives us a bigger SE than (c) but it's still smaller than (a)
+* I will choose (a).
+
+
+# Question 2: Can we do better with a synthetic control? (46 points)
+
+In Question #1 (and assignment #9), we used Missouri, Iowa, and Arkansas as a control group for Kansas.  This was based on background knowledge reseachers had on what states were thought to be "similar" to Kansas and that we might have thought would have common trends with Kansas in the absence of a tax cut.  In this problem, we will instead use a data driven way to choose the control  group.
+
+The dataset "kansas_wcontrols.dta" above includes data on all 50 states.  Synthetic control techniques studied in class can let us chooose a control group based  on pre-treatment data, instead of relying  on our economic and institutional knowledge. 
+
+We'll use the "Synth" command which implements synthetic control techniques.  We'll start by using the Synth command to produce weights that tell us how to combine the control states to create a "Synthetic" kansas.
+
+```{r}
+
+#install.packages("Synth") # install Synth package
+library(Synth) # load synth pacakge
+library(data.table)
+kansas<-data.table(kansas) # making kansas file a data
+kansas[,log.medinc:=log(medinc)] # creating a log medium income file
+
+# selecting options for using synthetic control and  creating data formatted for use with the synth command
+formatted.data<-dataprep(foo=kansas,predictors=c("log.medinc"),predictors.op="mean",special.predictors = list(list("pers_inc_tax_rel12",2000,"mean"),list("pers_inc_tax_rel12",2007,c("mean")),list("pers_inc_tax_rel12",2010,"mean")),dependent="pers_inc_tax_rel12",unit.variable="state_number",time.variable = "year",treatment.identifier = 16,time.predictors = c(2000:2012),controls.identifier = c(1,3:8,10:15,17:27,29:40,42,44:47,49:50),time.optimize.ssr = c(2006:2012),unit.names.variable = "state_name")
+
+synthetic.raw.output<-synth(formatted.data) # running synthetic control command to create synthetic weights
+weights.output<-data.table(synthetic.raw.output$solution.w) # outputting weights
+weights.output$id<-c(1,3:8,10:15,17:27,29:40,42,44:47,49:50) # creating control id#s for weights
+new.kansas<-data.table(merge(kansas,weights.output,by.x=c("state_number"),by.y=c("id"),all.x=TRUE)) # merging weights and weight ids
+new.kansas[is.na(w.weight),w.weight:=0] # replacing missing weights to  0s
+control.mean<-new.kansas[,lapply(.SD,weighted.mean,w=w.weight,na.rm=TRUE),.SDcols=c("pers_inc_tax_rel12"),by=.(year)] # creating "synthetic kanas" by average weights
+control.mean$state_number<-99 # giving synthetic kansas a number
+control.mean$state_name<-"Synthetic Kansas" # giving synthetic kansas a name
+synthetic.kansas<-rbind(control.mean,new.kansas,fill=TRUE) # adding synthehtic kansas to old file
+
+
+```
+
+(a) (8 points) Which states make up the largest portion of "synthetic kansas"? (i.e. make up at least 1% of the synthetic kansas average)  Are these states different or the same as the comparison states we used in our differences-in-differences approach that we used to estimate the effect of the tax cuts in Assignment #9?
+```{r}
+synthetic.kansas$state_name[which(synthetic.kansas$w.weight>=0.1)]
+```
+
+* New York,Pennsylvania,Kentucky. 
+* No,totally different.
+
+(b) (10 points)  Using the synthetic kansas constructed above, graph tax revenues for synthetic kansas compared to the non synthetic kansas.  Make one graph with both kansas and synthetic kansas and one graph showing the difference (i.e. the eent study).  Make sure to label your graphs.
+```{r}
+kansas_own_data=data.frame(year=seq(2000,2015,1),
+                           pers_inc_tax_rel12=new_data_1$pers_inc_tax_rel12,
+                           state_number=rep(16,16),
+                           state_name=rep('Kansas',16))
+kansas_with_synthetic_kansas = rbind(control.mean,kansas_own_data)
+library(ggplot2)
+# plotting the basic data
+ggplot(data=kansas_with_synthetic_kansas,aes(y=pers_inc_tax_rel12,x=year))+
+  geom_line(aes(linetype=as.factor(state_name),colour=as.factor(state_name)))+
+  geom_vline(xintercept=2012)
+
+kansas_diff=data.frame(year=seq(2000,2015,1),                         pers_inc_tax_diff=new_data_1$pers_inc_tax_rel12-control.mean$pers_inc_tax_rel12)
+
+ggplot(data=kansas_diff,aes(x=year, y=pers_inc_tax_diff))+geom_line(color='red')+geom_vline(xintercept=2012)
+```
+
+(c) (8 points) Does synthetic kansas track kansas before the tax cuts are passed (2002)? If *  yes,this makes you confident that the synthetic control method is a consistent estimator of the effect of the tax cut on Kansas?  Why or why not?
+ * Yes, the synthetic control method is a consistent estimator of the effect of the tax cut on Kansas. 
+(d) (10 points) Using the synthetic.kansas data, use regression to estimate the effect of the kansas tax cuts on tax revenues.  How does your answer compare to the answer we got using differences-in-differences?
+```{r}
+kansas_with_synthetic_kansas$treatment = 0
+kansas_with_synthetic_kansas[(kansas_with_synthetic_kansas$state_name=='Kansas') & (kansas_with_synthetic_kansas$year>=2012),]
+kansas_with_synthetic_kansas$treatment[c(29: 32)] = 1
+mod3 <- lm(pers_inc_tax_rel12~as.factor(treatment)+as.factor(state_name)+as.factor(year),data = kansas_with_synthetic_kansas)
+summary(mod3)
+```
+* The estimator is slightly smaller. 
+(e) (10 points) Describe in detail how you could use construct a p value for the probability of estimating an effect of the  effect of tax cuts as large or larger as the one you estimated under the null hypothesis that there was no effect.
+*We iteratively apply the synthetic method to each state in the ???donor pool??? and obtain a distribution of he one you estimated under the null hypothesis. Then there are effects as large or larger than he one we originally estimated. We find the distribution of the placebo effects of the donor pool. Then we construct a test to see if we reject the null hypothesis or not y its p value.*
+(f) (20 EXTRA CREDIT) Implement the precedure described in part (e).  WARNING, THIS IS VERY TIME CONSUMING AND HARD TO DO. 
+
