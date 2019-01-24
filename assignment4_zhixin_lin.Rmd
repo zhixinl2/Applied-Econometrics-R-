@@ -1,0 +1,172 @@
+---
+title: 'Econ 590 (M2): Assignment 2'
+author: "Zhixin Lin"
+date: "September 20, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+* Total points: 100
+* Due Date: September 27, 2018 at 10:05am
+* Hand  in a .html copy on Compass 2G OR a hard copy in class
+* Be succinct and concise in your answers (more words is not always better!).
+
+
+# Question 1: Covariates and block randomization (analysis) (40 points total)
+
+
+Recall the setting from assignment #1. You are working on a study of the effects of a microfinance program  for low-income households run by First Valley Bank in the Philippines.  The program provides business loans to households with small businesses. 
+
+Your answers to Assignment #1 and #2 successfully convinced First Valley Bank to conduct a randomized controlled trial of their micro-loan program. However, now you have to deal with the consequences of your excellent answers: you actually have to design the evaluation!
+
+You decide that you want to look into whether or not block randomization would be useful in designing your experiment.  
+
+*Type your answers below using markdown*
+
+
+```{r, results = 'asis',echo=FALSE}
+rmarkdownTable <- function(df){
+  cat(paste(names(df), collapse = "|"))
+  cat("\n")
+  cat(paste(rep("-", ncol(df)), collapse = "|"))
+  cat("\n")
+
+  for(i in 1:nrow(df)){
+    cat(paste(df[i,], collapse = "|"))
+    cat("\n")
+    }
+invisible(NULL)
+}
+
+id <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)
+y1 <- c(5,6,7,2,18,10,9,7,6,5,5,4,14,14,10,6) # earnings when receiving microfinance program (1000s of pesos)
+y0 <- c(1,4,3,0,14,8,5,5,2,3,1,2,12,10,6,4) # earnings without microfinance (1000s of pesos)
+employees <- c(0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1) # any non-family member employees
+female <- c(0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1) #1 = female, 0=male hh head
+
+potentialoutcomes <- data.frame(id,y1,y0,employees,female)
+colnames(potentialoutcomes) <- c("Household id #","Y(1)","Y(0)","Any Employees","Female hh head")
+rmarkdownTable(potentialoutcomes)
+```
+ 
+
+(a) (8 points) What is the population Average Treatment Effect (ATE) overall, for households with non-family member employees, for households without employees, for households with female household heads and households with male household heads?
+* ATE(overall)=E(Y1)-E(Y0)=3
+* ATE(employees)=E(Y1|Employees=1)-E(Y0|employees=1)=3
+* ATE(without employees)=E(Y1|Employees=0)-E(Y0|employees=0)=3
+* ATE(Femalehh)=E(Y1|Femalehh=1)-E(Y0|Femalehh=1)=3
+* ATE(malehh)=E(Y1|Femalehh=0)-E(Y0|Femalehh=0)=3
+(b) (8 points) You're concerned that First Valley Bank may not implement the randomization correctly.  How could you use the data above to test the hypothesis that treatment and control were randomly assigned? 
+* To test whether the treatment and control group is randomly assigned or not, we could try to check the covariate balance. To see if the baseline characteristics of the samples are different or similar. In this case, the female hh head and employee columns are the covariates.
+(c) (10 points) After your power analysis above, First Valley Bank is concerned about the precision of the estimates from this study. You propose block random assignment as one approach to increasing precision.  If you were going to block on either an indicator for whether the household business has paid employees or the gender of household head, which one would you choose?  Justify your reasoning.  
+* I would choose to block on whether the household has paid employees, because having a paid employee indicates related information, for example the profitabiliy of the business and the scale of its business. Also blocking can decrease the standard error for ATE.
+(d) (10 points) How much would your choice improve the precision of your estimates?  Discuss the intuition behind why one blocking strategy is more effective than the other.  
+```{r}
+SD_pop <- sqrt((var(y1)/16)+(var(y0)/16))
+SD_1 <- sqrt(var(c(18,10,9,7,14,14,10,6))/8+var(c(14,8,5,5,12,10,6,4))/8)
+SD_2 <- sqrt(var(c(5,6,7,2,6,5,5,4))/8+var(c(1,4,3,0,2,3,1,2))/8)
+SD_block_employee <- sqrt((1/4)*((SD_1)^2)+(1/4)*((SD_2)^2))
+SD_pop
+SD_block_employee
+```
+```{r}
+SD_3 = sqrt(var(y1[1:8])/8+var(y0[1:8])/8)
+SD_4 = sqrt(var(y1[9:16])/8+var(y0[9:16])/8)
+SD_block_female = sqrt(1/4*((SD_3)^2)+1/4*((SD_4)^2))
+SD_block_female
+```
+With blocking on employee, the standard error reduces from 1.48 to 1.03. Lower  standard error indicates higher precision of the estimates. Blocking on employee is more effective than blocking on female hh head, since hiring employees is a factor more relavant to business,while female hh head is less relavant to how successful the business is.
+
+[Hint: an approximation for the population standard error of the ATE estimate is $se(\hat{ATE})\approx \sqrt{\frac{Var(Y_i(1))}{N_1}+\frac{Var(Y_i(0))}{N_0}}$. and for the ATE blocking estimator when there are $J$ blocks is $se(\hat{ATE}_{block})= \sqrt{\sum_{j=1}^J \bigg{(}\frac{N_j}{N}\bigg{)}^2se(\widehat{ATE}_j)^2}$]
+
+(e) (4 points) Write down the block random assignment ATE estimator based on your choice of blocking variable described above.
+```{r}
+ateA<-(sum(y1[5:8]+y1[13:16])-sum(y0[5:8]+y0[13:16]))/8
+ateB<-(sum(y1[1:4]+y1[9:12])-sum(y0[1:4]+y0[9:12]))/8
+ateBlock<-(ateA/2)+(ateB/2)
+ateBlock
+```
+
+
+# Question 2: Non-compliance and IV (60 points total)
+
+After talking with First Valley bank in more detail, you realize that you have another problem: you can't make anyone take-up a microfinance loan. A substantial share of families that apply for and are offered loans ultimately decide not to take-up the loan.  At best, you can offer different families loans and, hopefully, induce a greater number of families to take-up.
+
+The table below shows potential outcomes and as families potential treatment status if they are offered a loan (i.e. whether or not they take-up a loan if they are offered on by first valley, and whether or not they take-up a loan if they are not offered one by first-valley bank).
+
+*Type your answers below using markdown*
+
+```{r, results = 'asis',echo=FALSE}
+rmarkdownTable <- function(df){
+  cat(paste(names(df), collapse = "|"))
+  cat("\n")
+  cat(paste(rep("-", ncol(df)), collapse = "|"))
+  cat("\n")
+
+  for(i in 1:nrow(df)){
+    cat(paste(df[i,], collapse = "|"))
+    cat("\n")
+    }
+invisible(NULL)
+}
+
+id <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)
+y1 <- c(5,6,7,2,18,10,9,7,6,5,5,4,14,14,10,6) # earnings when receiving microfinance loan (1000s of pesos)
+y0 <- c(1,4,3,0,14,8,5,5,2,3,1,2,12,10,6,4) # earnings when not receiving mircofinance loan (1000s of pesos)
+takeup.loan.when.offered <- c(0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,0) # indicator for whether the family taks up a loan when they are offered one
+takeup.loan.when.not.offered <- c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0) # indicator for whether the family takes up a loan when not-offered one
+Treatment_effect = y1-y0
+encourage_effect = c(0,0,0,0,4,2,4,0,0,0,0,0,0,4,4,0)
+
+potentialoutcomes <- data.frame(id,y1,y0,takeup.loan.when.offered,takeup.loan.when.not.offered,Treatment_effect,encourage_effect)
+colnames(potentialoutcomes) <- c("Household id #","Y(1)","Y(0)","Takes up loan when offered","Takes up loan when not offered","Treatment Effect","Encouragement Effect")
+rmarkdownTable(potentialoutcomes)
+```
+ 
+
+(a) (8 points)  Who are the never-takers?  Who are the compliers?  Who are the always takers?  Are there any defiers?  List the IDs (if any) of households in each of these groups.
+* Never-Taker: 1,2,3,4,8,9,10,11,12,13,16
+* Complier: 5,6,7,14,15
+* Always-Taker: None
+* Defier: None
+
+(b) (8 points) Add two columns to this table listing the treatment effect of receiving a loan loan and the encouragement effect for each household.  
+* See the table above
+(c) (8 points) What is the Average Treatment Effect for the population?  What is the Intent-to-Treat Effect? What is population the effect of loan offers on loan takeup? 
+* Average Treatment Effect is 3.
+* Intent-to-Treat Effect is 1.125.
+* Population the effect of loan offers on loan takeup is 16
+* The first stage is 5/16
+```{r}
+ATE <- mean(y1)-mean(y0)
+ATE
+```
+```{r}
+ITT <- sum(encourage_effect)/16
+ITT
+```
+(d) (8 points) Using your estimates from part (c), use the population Wald Estimator to compute the Local Average Treatment Effect (LATE) of receiving a loan on outcomes.
+* Local Average Treatment Effect (LATE) is 3.6
+```{r}
+LATE<-ITT/(5/16)
+LATE
+```
+
+(e) (8 points) Does your answer from part (d) differ from the Average Treatment Effect (ATE) you found in part (c)?  If it does differ, explain why.  
+Yes, it differs. Because LATE only tells us the ATE for compliers, it teaches us zero imformation about Always Takers/Never Takers.
+(f) (10 points) What assumptions do you need for the population Wald Estimator used in part (d) to generate unbiased estimates of the LATE? 
+* Relevance: The instrument has a positive eect on the variable whose eects
+we're trying to capture. Known as \non-zero" rst-stage assumption.
+* Independence: The instrument is randomly assigned or \as good as randomly
+assigned" in the sense of being unrelated to the omitted variables we might like to
+control for (in this case variables like family background or motivation).
+* Exclusion Restriction: The instrument only aects potential outcomes through
+the treatment variable (i.e. Sesame Street watching)
+* Monotonicity: The instrument only changes the probability of receiving
+treatment in one direction (i.e. positive or negative). In this example, it doesn't
+make some people more likely and others less likely to receive treatment.
+(g) (10 points) Do you think the assumptions you outlined in part (f) are valid in this setting?  Why or why not?
+
+I think it's valid.  Because offer were randomly assigned that meets the independece assumption, also it's relevant since First Stage is a positive number. Lastly, we can assume giving offers only affect treatment variable exclusively and only affect in one direction
