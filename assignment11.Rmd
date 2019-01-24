@@ -1,0 +1,168 @@
+---
+title: 'Econ 590 (M2): Assignment 5'
+author: "Zhixin Lin"
+date: "November 18, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+* Total points: 100
+* Due Date: December 4th, 2018 at 10am
+* Hand  in a .html copy on Compass 2G AND a hard copy in class
+* Be succinct and concise in your answers (more words is not always better!).
+
+# Question 1: Regression discontinuity (40 points total)
+
+A number of researchers have attempted to use school starting ages as sources of regression discontinuities.  Typically, states set calendar dates (e.g., September 1) and decree that all students who are 5 by September 1 of a given calendar year should start kindergarten that year.
+
+Imagine that you have data on all children born in 1992. You compute the number of days that each child was born before or after the school entry cutoff - e.g., a child born on August 15 would be assigned a +16, as she was born 16 days before the cutoff, while a child born on September 15 would receive a -15.  You then measure the grade that each child was in during the 1998-1999 school year.  A child with a relative birthdate of 0 would have turned six on September 1, 1998, so we expect that children with relative birthdates greater than zero should be in first grade in this year while those with relative birthdates less than zero should be in kindergarten.
+
+You divide the sample into bins of seven relative birthdates (so that one bin contains all children with relative birthdates of 0 to 6, another 7 to 13, and so on; other bins contain -1 to -7, -8 to -14, and so on).  You then compute the fraction of children in each bin who are in first grade in 1998-1999. The graph below shows the results:
+
+![Entering First Grade](birthday_RD.png)
+
+(a) (6 points)	Explain what this graph means.  What can we infer about the enforcement of the state starting age law?  What can you infer about the number of compliers, defiers, always takers, and never takers for the policy of encouraging students to start kindergarten by the year in which they will be 5 on September 1?
+
+    * This graph means that children before and after 5 years old have distinctively different probability of going to kingdergarten.Right before 5 has only less than 10%  going to kingdergarten, and kids right after 5 has probability of around 70%. The enforcement of this policy is not perfect, since some children went to kingdergartan before 5 and some do not go after 5. The number of compliers is the majority. Not many defiers, always takers and never takers 
+
+(b) (6 points)	Suppose that a researcher gathers data from the same cohort in 2012, the year that the individuals turned 20, and shows that the average number of years of completed education is noticeably higher for those with positive relative ages than for those with negative relative ages.  Describe how this fact could be used to identify the effect of completed education on earnings as an adult.
+
+    *  This implies that the enforcement of kids going to kindergarden is very effective, and these children have continued their education without gapping.  Since children with higher age tend to have a higher year of education, its a very good instrumental variable for year of education if we want to study the effect of year of education on earnings.
+    
+(c) (6 points)	Sorting around the discontinuity is a recognized threat to a regression discontinuity design.  How likely is this to be a problem here?  How could you tell if it was?
+
+    * This is not likely a problem here, because there is no clear sign of manipulation around the cuttoff point, as there is no big ???jumps??? around the threshold.
+
+(d) (6 points)	How will the educational experience of children born on September 2 differ from those of children born on August 30?  Consider in particular the claim (popularized by Malcolm Gladwell) that children benefit from being the oldest in their peer groups.  How does this affect the interpretation of this research design? Is this still a valid research design?
+
+    * Children born on September 2 will have one more year of education than those of children born on August 30. This effect might affect the design since people with a earlier birthday have an advantage against those who have a later birthday even if they are of the same age.
+
+(e) (6 points)	A state is considering funding pre-kindergarten classes, so that children can have a year of school before the normal kindergarten start date.  How useful is the evidence from question 2 as a guide to effect of this policy? What assumptions (if any) do we need to make?
+
+    * The year of education need to be plus one in the study. We also need to assume that all kids attend the one-year school before normal kindergarten.
+
+# Question 2: What's the incumbency advantage is Brazil? (empirical example)
+
+This data set is used in the paper "Incumbency Advantage in Brazil: Evidence from Municipal Mayor Elections" by Rocio Titiunik. The paper tests whether being an incumbent gives candidates an advantage in elections. It does this by comparing votes shares in 2004 for those mayoral candidates that barely won in 2000 to candidates that barely lost in 2000. In the data:
+
+- The score which is the vote share in 2000 is the variable `vote_margin`, which has been centered at 0. As such, the cutoff in the score is always zero. 
+- The variable `treat` is a binary indicator for whether a candidate won in 2000. 
+- The outcome variable is `PMDB_vote_share_04`, which is an indicator for whether the candidate won in 2004, the next election. 
+- The variables `gini_2000`, `income_2000`, `pop_2000`, and `cattle_1985` are pre-treatment covariates.
+
+
+# Setup and load in data
+```{r}
+# install tidyverse if you havent already
+library(tidyverse) 
+library(data.table)
+# make sure you install package rdrobust if you havent already
+library(rdrobust) 
+library(haven)
+source("rddensity.R") # make sure you  put rddensity.R in the same folder as your assignment file
+```
+
+
+
+```{r}
+data <- read_dta("brazil.dta")
+
+# data
+# View(data)
+```
+
+
+
+# a) Naive comparison (10 points)
+What do we get with a naive comparison on 2004 vote share based on winners and losers in 2000?  Why might this estimator not provide an unbiased estimate of the effect of incumbency for some population?
+```{r}
+mean(data$PMDB_win_04[which(data$treat==1)])-mean(data$PMDB_win_04[which(data$treat==0)])
+
+```
+    
+    * This naive comparison maybe cause biased estimate because conditions for 2000 may changed a lot for 2004
+
+# b) Make a plot (10 points)
+First, we estimate the RDD effect of incumbency graphically. That is, we create a plot with the
+outcome as the y-axis as a function of the score. 
+
+* What does this  graphical estimate indicate?
+
+```{r}
+rdplot(data$PMDB_win_04, data$vote_margin)
+```
+
+    * This graph indicate that there is a cutoff between votes shares in 2004 for those mayoral candidates that barely won in 2000 and candidates that barely lost in 2000. If candidates barely won in 2000 they tend to have lower probability to win in 2004 than those who barely lost.
+
+# c) Slightly fancier estimates (10 total points)
+
+* Below we estimate the RD using a inear regression
+```{r}
+# Estimate two regressions
+left.reg <- lm(PMDB_win_04 ~ vote_margin, data=data[data$vote_margin<0,])
+right.reg <- lm(PMDB_win_04 ~ vote_margin, data=data[data$vote_margin>=0,])
+coef(right.reg)[1] - coef(left.reg)[1]
+
+# For inference, use the combined model
+summary(lm(PMDB_win_04 ~ treat + vote_margin + vote_margin*treat, data = data))
+```
+
+*  Which coefficient do we care about? (2 points)
+* treat
+* Now let's use quadratic regression (fancy!).  Enter your code in the box below and use  your estimate in a sentence.  (Note that this should be a global quadratic).  (4 points)
+
+```{r}
+
+summary(lm(PMDB_win_04 ~ treat + vote_margin + vote_margin*treat + I(vote_margin^2)*treat, data = data))
+```
+
+* What makes the quadratic  you used above "global"? (2 points)
+    * We use all data of vote_margin instead of neighborhood, so it is not local.
+* Do the linear results differ from the quadratic ones? Is so, why might that be the case? (2 points) 
+    * Yes, it differs,because they use different functional forms.
+
+# Now, we'll estimate the effects of incumbency using one of the canned RDD packages.
+A favorite is the `rdrobust` package. It has some good defaults. The results are shown below:
+```{r}
+rdrobust(data$PMDB_win_04, data$vote_margin)
+```
+
+
+# d) Check for covariate balance using the 4 covariates `gini_2000`, `income_2000`, `pop_2000` and `cattle_1985` (10 points)
+```{r}
+rdplot(data$gini_2000, data$vote_margin, title = "Gini coefficient")
+
+rdplot(data$income_2000, data$vote_margin, title = "Income")
+
+rdplot(data$pop_2000, data$vote_margin, title = "Population")
+
+rdplot(data$cattle_1985, data$vote_margin, title = "Number of Cattle")
+```
+    
+    *There is no obvious cutoff in four covariates, indicating that candidates that barely won in 2000 and candidates that barely lost in 2000 are not different.
+
+# e) Quick placebo tests (10 points) 
+Let's use the `rdrobust` function to estimate placebo effects. The option `c = ` sets a different cutoff for the running variable. (default is `c = 0`).  Try four different placebo cutoffs; two  above the true cutoff and two below the true cutoff.  Do your findings provide any evidence that the identifying assumptions are invalid?
+```{r}
+summary(rdrobust(data$PMDB_win_04, data$vote_margin, c = 0.1))
+summary(rdrobust(data$PMDB_win_04, data$vote_margin, c = -0.1))
+summary(rdrobust(data$PMDB_win_04, data$vote_margin, c = 0.2))
+summary(rdrobust(data$PMDB_win_04, data$vote_margin, c = -0.2))
+```
+
+    * Chaning cutoffs let us see how resulting coefficients change drastically, the resulting coeffcients is insignificant which means the cutoff should not be those chosen cutoff values.
+
+# f) Density test (10 points)
+Conduct a quick visual test for different densities on either side of the cutoff. (i.e. the diagnostic test suggested by McCrary that we discussed in class). Does this test indicate any problems?  What do you conclude?
+
+```{r}
+library(rdd)
+runvar=data$vote_margin
+DCdensity(runvar,0)
+
+```
+
+    *  From the graph, we can know it is continuous and balanced.
+
