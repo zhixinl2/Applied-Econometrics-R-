@@ -1,0 +1,144 @@
+---
+title: 'Econ 590 (M2): Assignment 6'
+author: "Zhixin Lin"
+date: "DATE OF ASSIGNMENT, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+* Total points: 100
+* Due Date: October 18, 2018 at 10am
+* Hand  in a .html copy on Compass 2G AND a hard copy in class
+* Be succinct and concise in your answers (more words is not always better!).
+
+
+# Question 1: Education regression basics (100) points total)
+
+You're interested in the regression of log wages, $Y_{i}$, on years of schooling, $S_i$. 
+Write this regression as:
+
+$$ Y_i = \alpha + \beta S_i  + \epsilon_i$$  
+
+As always, the population regression coefficients $\alpha$ and $\beta$ are defined so that $\epsilon_i$ is uncorrelated with $S_i$.
+
+(a) (10 points) Your roommate gets a vision from the ghost of Tom Petty.  He tells you that the model specified above is not correct, and that the relationship between $S_i$ and $Y_i$ is not actually linear as specified above.  Despondent, your roommate tells you that you can't use linear regression to analyze this question, as the model no longer satisfies the Gauss Markov theorem.   
+
+Is your roommate right or wrong?  Why or why not?
+* My roommate is wrong. Because though the Gauss Markov theorem does not hold. OLS is still great. Because it is the best linear predictor of Yi, given Si. And If CEF is linear, regression is it. Lastly, Regression gives us the best linear approxiation to the CEF. 
+(b) (10 points) Define the Conditional Expectation Function (CEF).  Prove that regression (i.e.  OLS) generates the best linear approximation to the CEF.  Why is this property helpful.
+* The conditional expectationn function for a dependent variable , Yi given K*1 vector of covariates, Xi is written E[Yi|Xi=1] and is a function of Xi.
+* (Yi-Xi'b)^2={(Yi-E[Yi|Xi])+(E[Yi|Xi]-Xi'b)}=(Yi-E[Yi|Xi])^2+(E[Yi|Xi]-Xi'b)^2+2(Yi-E[Yi|Xi])*(E[Yi|Xi]-Xi'b)
+Because the first term doesn't involve b, and the last term has expectation zero,therefore this is the same as the population least squares problem. 
+
+(c) Load the data-set: cps_mar2017_assignment.dta:
+
+```{r}
+library(haven)
+cps <- data.frame(read_stata("/Users/kevinlin/Desktop/6/cps_mar2017_assignment.dta")) #loading data-set 
+
+
+```
+
+
+* (8 points) Generate a scatter plot of log-earnings (y-axis) against years of education (x-axis).
+
+
+```{r}
+
+library(ggplot2)
+cps$incwage <- log(cps$incwage+0.1)
+p <- ggplot(data = cps, mapping = aes(x = schooling, y = incwage) )
+p + geom_point()
+# Hint: try the ggplot2 function 
+# Hint 2: don't forget that earnings come as the level of earnings and you need to use log-earnings
+
+```
+
+
+* (8 points) Compute the conditional expectation function (CEF) of the relationship between education and earnings. 
+
+```{r}
+cef_earning_education <- aggregate(cps$incwage,list(education=cps$schooling),mean) 
+names(cef_earning_education)[names(cef_earning_education)=="x"] <- "earning" 
+ggplot(cef_earning_education,aes(x=education,y=earning))+geom_point()
+
+# Hint: try the aggregate function
+
+# For example, I can compute the CEF of working and age as: 
+
+```
+
+
+* (8 points) Estimate an OLS model of the relationship between schooling and wages and plot it against the scatter plot above.
+
+```{r}
+fit1 <- lm(cps$incwage~cps$schooling)
+summary(fit1)
+cef_earning_education <- aggregate(cps$incwage,list(education=cps$schooling),mean) 
+names(cef_earning_education)[names(cef_earning_education)=="x"] <- "earning" 
+ggplot(cef_earning_education,aes(x=education,y=earning))+geom_point()+geom_abline(intercept = fit1$coef[1],slope = fit1$coef[2])
+
+```
+
+
+* (10 points) Show that the OLS residuals are uncorrelated with education.  Why is this the case?
+[Hint: recall that $e_i = Y_i - \beta X_i$]
+
+```{r}
+e_i <- cps$incwage-(fit1$coef[2]*cps$schooling)
+fit2<-lm(cps$schooling~e_i)
+summary(fit2)
+```
+* The covariace of residuals and education is 7.548079e-15, which means residuals are uncorrelated with education.
+
+* (10 points) Estimate a regression model of the relationship between years of schooling and the indicator for whether or not the person worked last year (the "employed" variable).
+
+```{r}
+fit3 <- lm(cps$employed~cps$schooling)
+summary(fit3)
+```
+
+* (20 points) Estimate a logit and models of the relationship between years of schooling and the indicator for whether or not the person worked last year (the "employed" variable).  Compute the marginal effects (MFX).  What are these?  Provide a formula.  How difference are they from OLS?
+
+```{r}
+logit <- glm(cps$employed~cps$schooling, family=binomial(link="logit"),data = cps)
+summary(logit)
+probit <- glm(cps$employed~cps$schooling, family=binomial(link="probit"),data = cps)
+summary(probit)
+library(mfx)
+mfx_logit <- logitmfx(formula=cps$employed~cps$schooling, data=cps)
+mfx_logit
+mfx_probit <- probitmfx(formula=cps$employed~cps$schooling, data=cps)
+mfx_probit
+
+```
+* MFX tells us the effect of Si on average Yi.MFX from logit model is 0.02476021, and 0.02542940 from probit model. The slope of OLS and MFXs from probit and logit models are very close.
+
+
+* (8 points) Instead, estimate OLS, Probit, and Logit models using dummy variables for each year of education.  Do your estimates differ now?  Why?
+
+```{r}
+cps$edu.f <- factor(cps$schooling)
+fit4 <- lm(cps$employed ~ cps$edu.f)
+logit2 <- glm(cps$employed~cps$edu.f, family=binomial(link="logit"),data = cps)
+probit2 <- glm(cps$employed~cps$edu.f, family=binomial(link="probit"),data = cps)
+summary(fit4)
+summary(logit2)
+summary(probit2)
+mfx_logit2 <- logitmfx(formula=cps$employed~cps$edu.f, data=cps)
+mfx_logit2
+mfx_probit2 <- probitmfx(formula=cps$employed~cps$edu.f, data=cps)
+mfx_probit2
+
+```
+* The estimates is different now in this case. Because MFX is not from nonlinear models anymore. 
+
+* (8 points) How do the OLS estimates using years of education dummies compare to the CEF?  How does this relate to your answer to question 1c above?
+
+```{r}
+dum<-lm(cps$incwage~factor(cps$schooling))
+summary(dum)
+```
+
