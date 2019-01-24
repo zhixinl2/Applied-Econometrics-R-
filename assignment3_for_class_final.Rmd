@@ -1,0 +1,140 @@
+---
+title: 'Econ 590 (M2): Assignment 3'
+author: "Zhixin Lin"
+date: "September 13, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+* Total points: 100
+* Due Date: September 20, 2018 at 10am
+* Hand  in a .html copy on Compass 2G AND a hard copy in class
+* Be succinct and concise in your answers (more words is not always better!).
+
+# Some simplifying assumptions
+
+The aim in a power calculation is to get an approximate answer, not an exact one, so it's often useful to make approximations. Here are three approximations that you may find helpful, alone or in combination:
+
+- The average of any variable (even a binary one) in a large enough group has a normal distribution. For smaller groups, the normal distribution isn't exactly right, but it isn't too far off.
+- One approximation that you may find helpful is to assume that the variance of the outcome in the treatment group is the same as that in the control group.  This isn't quite right unless the treatment effect is exactly zero, but it is close enough and it sometimes makes the math easier.  
+- Remember that a Bernoulli random variable (i.e. one that takes on values of 1 with probability $p$ and otherwise is equal to 0) has variance $p(1-p)$ and standard deviation $\sqrt{p(1-p)}$
+
+# Question 1: Short Questions (40 points total)
+
+My friend Ray is asking for your help. As discussed in the posted lecture notes (but not discussed in class), Ray is evaluating the effect of Pay-When-You-Drive auto-insurance on the take-up of auto-insurance (of any type) among previously uninsured drivers. Ray is finishing the power calculations for the study, and wanted your help in interpreting some of the calculations (and the results!)
+
+*Type your answers below using markdown. *
+
+Answer each of the following questions.  
+
+(a)	(20 points) Ray provides you with the graph below, which shows the sampling distribution of the Average Treatment Effects (ATE) estimator under the null hypothesis that PWYD insurance has no relationship with insurance take-up, and under the alternative hypothesis that being offered PWYD insurance increases take-up of insurance by $\delta$. Answer the following questions about the graph.
+
+![Power Figure](ModifiedPower.png)
+
+* (2 points) Label the effect size implied by the alternative and null hypotheses in the figure. 
+* (3 points) Shade and label the area that represents Type I error in the figure.
+* (3 points) Shade and label the area that represents Type II error in the figure. 
+* (3 points) Shade and label the area that represents the power in the figure.
+* (3 points) Define Type I error and state what it means in this experimental setting.
+Rejecting H0 if H0 is true, in this case, it means that it is true that PWYD insurance has no relationship with insurance take-up, but we reject it. 
+* (3 points) Define Type II error and state what it means in this experimental setting.
+Failing to reject H0 when H0 is flase. it means that it is flase that PWYD insurance has no relationship with insurance take-up, but we did not reject it.
+* (3 point)  Define Type III error. 
+Forgetting which is Type I and which is Type II
+(b) (20 points total) A few months later, Ray comes back to you and says that he's followed your advice in running the experiment and that he's just received the first round of results. He says that the mean insurance takeup in the treatment group is .24 and in the control group it is .12. The sample size was 200 in the control group and 200 in the treatment group.
+
+* (5 points)  What is the 95% confidence interval for Ray's experiment?  What is the statistical meaning of this confidence interval in this setting? [HINT: given that take-up is a variable that takes values of 1 if individuals by insurance and 0 if individuals do not buy insurance, what will its variance and standard deviation be?]
+```{r}
+s.e <- sqrt((0.12*0.88)/400)
+upper <- 1.96*s.e + 0.12
+lower <- -1.96*s.e + 0.12
+upper
+lower
+```
+
+* (5 points) Write down the formula for the t-statistic for the test of the null hypothesis that PWYD insurance has no effect on insurance take-up.  What is the estimated t-statistic? 
+t-statistic = (mean(H1)-mean(H0))/s.e
+```{r}
+s.e <- sqrt((0.12*0.88)/400)
+t_statistic  <- (0.24-0.12)/s.e
+t_statistic
+```
+
+* (5 points) What is the p-value corresponding to this t-statistic?  (Hint: use the assumption that the sample is large enough that means follow a normal distribution)
+```{r}
+p_value <- 1- pnorm(t_statistic)
+p_value
+```
+
+* (5 points) After you tell him the p-value, Ray responses "Oh, cool, so that's the probability that the null hypothesis is true, right?".  Is Ray right or wrong?  Explain your reasoning.
+No, the p-value implies that we should reject the null, which means we reject the hypothesis that PWYD insurance has no relationship with insurance take-up. 
+
+*****
+
+# Question 2: No one person should have all that power (analysis) (60 points total)
+
+*Type your answers below using markdown *
+
+Recall the setting from assignment #1. You are working on a study of the effects of a microfinance program  for low-income households run by First Valley Bank in the Philippines.  The program provides business loans to households with small businesses. 
+
+Your answers to Assignment #1 successfully convinced First Valley Bank to conduct a randomized controlled trial of their micro-loan program. However, now you have to deal with the consequences of your excellent answers: you actually have to design the evaluation!
+
+Lucky for you, First Valley Bank conducted a pilot study. They found that the standard deviation of business earnings was $1,000 Filipino pesos for both the treatment and control groups and that it is equally costly to add an additional treatment observation as it is to add an additional control observation. 
+
+After showing you this pilot data, the CEO of First Valley Bank turns to you and asks: "So, how big of a sample do I need?"
+
+Answer the following questions and explain your reasoning. 
+ 
+(a) (8 points) What share of the sample should first valley bank allocate to treatment versus control?  Justify your answer.
+The share of both treatment and control group should be 0.5, because we assume that both groups have the same variance.
+(b) (6 points) If the microfinance program has no effect, what is the probability of estimating a positive effect?
+0.5, becasue we assume that the sample is large enough that means follow a normal distribution. And if the microfinace program has no effect, then the mean of the distribution is 0, thus the probability of eatimating a positive effect is 0.5.
+(c) (6 points) If the microfinance program has no effect, what is the probability of estimating a statistically significant positive effect? 
+The probability is the type I error, because estimating a statistically significant positive means the null hypothesis is true but we reject it. 
+(d) (10 points) Suppose that First Valley Bank wants to be confident that the standard error of their estimate is no more than 200 pesos.  How large of a sample would they need?  How would your answer change if they instead wanted their standard error to be no more than 20 pesos? 
+```{r}
+sd1 <- 200
+n1 <- (1000/sd1)^2
+ceiling(n1)
+sd2 <- 20
+n2 <- (1000/sd2)^2
+ceiling(n2)
+```
+
+(e) (10 points) Microfinance has been promoted as being able to lift households out of poverty.  Suppose that the households in First Valley Bank's client base would all be lifted out of poverty if the ATE is at least \$2000 pesos. 
+
+Based on this information, First Valley tells you that the Minimum Detectable Effect Size (MDES) that they want to be able to detect is \$2000 pesos. They also tell you that they want to have at least 80% power, size of 5\%, and a null hypothesis of 0 effect.
+
+Given this information, what is the minimum sample size that First Valley Bank needs?
+```{r}
+SD <- 1000
+ES <- 2000/SD
+MSS <- (2*2.8/ES)^2
+ceiling(MSS)
+```
+
+(f) (5 points) Do you think that the MDES chosen by First Valley Bank above is a good one? Explain your reasoning.
+I think is is not a good one. Because this MDSE is so large and makes the sample size so small. And the small sample size usually does not follow the normal distribution.
+(g) (5 points) After talking it over, First Valley Bank changes its mind and says that they want to detect the smallest effect size possible using their budget.  Assuming their budget allows for a sample of 1000 households (500 allocated to treatment and 500 to control), what is the Minimum Detectable Effect Size that they can detect?
+```{r}
+MSS <- 1000
+ES <- sqrt(((2*2.8)^2)/MSS)
+MDES <- ES*1000
+MDES
+```
+
+(h) (5 points) First Valley Bank comes to you and says that they made a typo - the standard deviation of business earnings is not the same for treatment and control households.  Instead, the standard deviation for treatment households is twice that of control households.  Should First Valley keep the same share of the sample in treatment and control that you found in part (a) above?  If not, what is the new share in treatment and control that they should choose?  Explain your reasoning. 
+No, p* = sd1/(sd1+sd0) = 2sd0/(2sd0+sd0) = 2/3. So the new share is that treatment group has 2/3 share , and control group has 1/3 shares. 
+(i) (5 points) The CEO of First Valley Bank sheepishly gives you another call and says that she had the typo wrong - the standard deviation of business earnings was the same for treatment and control (as they had originally told you), but the cost of adding an additional treatment rule is not the same as addinig an additional control unit.  Instead adding an additional treatment unit costs 9 times the cost of adding an additional control unit.
+
+* Should they keep the same share of the sample in treatment that you gave in part (a) above?  If not, what new share should they choose? Explain your reasoning.
+No, p/(1-p) = (Cc/Ct)^(1/2) = 1/3. So p = 1/4, it means that the treatment group will has 1/4 shares, while the control group has 3/4 shares. 
+*****
+
+
+
+
+
+
