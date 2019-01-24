@@ -1,0 +1,328 @@
+---
+title: 'Econ 590 (M2): Assignment 1'
+author: "Zhixin Lin"
+date: "August 30, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+* Total points: 100 (graded on check, check plus, check minus scale)
+* Due Date: September 6, 2018 at 10:05am
+* Be succinct and concise in your answers (more words is not always better!).
+
+# Question 1: Short Questions (14 points total)
+
+*Type your answers below using markdown. *
+
+Answer each of the following questions and explain your reasoning.
+
+
+(a)	(12 points) Last year, the government of Norway started implementing a new program where new parents were allowed 
+to sign up for a subsidized parenthoood class that provided them advice and instructions on how to help their childrens develop cognitively. After giving birth, each family decides whether or not they enroll in the parenthood class.  The class runs for 10 weeks and costs \$2000 per family.  
+
+The administrator who runs the program tells you that it has been a smashing success, with children of 
+enrollees having much better test scores at age 5 than those who don't enroll.
+
+* (4 points) What is the treatment and control group in the administrator's comparison?
+Treatment group: Di=1, families that decide to enroll the parenthood class. Control group: Di=0, families that decide not to enroll the parenthood class.
+* (4 points) What are the potential outcomes in this setting?
+Two potential outcomes: Yi,1 = children’s test score if family enrolls the parenthood class; Yi,0 = children’s test score if families does not enroll the parenthood class.
+* (4 points) Give a reason why the administrator's conclusion may be incorrect.
+Because the class is relatively expensive, so it might imply that the families who enroll the class might have better financial status. For those children who come from wealthy family, they can have better eduction resources, so they might get higher score even without those parenthood class.
+(b) (16 points) Many states have passed laws requiring parents to vaccinate their children for measles if they want to send them to public schools. Your classmate is studying the effects of these laws on state-level measles infection rates (i.e. the share of children getting measles in different states).  
+
+* (4 points) What is the treatment and control  group in your classmates' study?
+Treatment group: Di=1, States passed the law that requiring parents to vaccinate their children for measles 
+Control group: Di=0, States didn’t pass the law that requiring parents to vaccinate their children for measles.
+* (4 pionts) What are the potential outcomes in this setting?
+There are two potential outcomes: Yi,1 = state-level measles infection rate if the state passes the law; Yi,0 = stat-level meaasles infection rate if the state does not pass the law.
+* (4 points) Vaccines have well-documented spillovers across individuals. Do these spillovers mean this study violates the Stable Unit Treatment Value Assumption (SUTVA)?  WHy or why not?  Please clearly state your reasoning.
+across individuals violates the assumption of SUTVA, treatment applied to one unit affect the outcome of another unit, which means the outcome does not only depend on the treatment, so it violates the Stable Unit Treatment Value Assumption.
+* (4 points): Describe one type of selection bias that might arise in this setting.
+One explanation is that the high measles infection rate is the reason why the state passes the law to reduce it, which means those states have high measles infection rate even with or without passing the law. In this case, the selection bias will arise.
+
+
+
+*****
+
+# Question 2: You calling  me biased? (16 points total)
+
+*Type your answers below using markdown *
+
+After graduation, you start working on a study of the effects of a microfinance program  for low-income households run by First Valley Bank in the Philippines.  The program provides business loans to households with small businesses. 
+
+There are seven total households in the neighborhood that the microfinance bank currently works in. Their potential outcomes are shown in the table below. 
+
+Households 3 and 4 decide to take-up the microfinance program while the other households do not. 
+
+
+```{r, results = 'asis',echo=FALSE}
+
+chooseCRANmirror(ind=90) #set the CRAN repository for the session
+
+rmarkdownTable <- function(df){
+  cat(paste(names(df), collapse = "|"))
+  cat("\n")
+  cat(paste(rep("-", ncol(df)), collapse = "|"))
+  cat("\n")
+
+  for(i in 1:nrow(df)){
+    cat(paste(df[i,], collapse = "|"))
+    cat("\n")
+    }
+invisible(NULL)
+}
+
+id <- c(1,2,3,4,5,6,7)
+y1 <- c(20,25,30,20,25,60,35)
+y0 <- c(10,5,0,20,10,55,25)
+
+potentialoutcomes <- data.frame(id,y1,y0)
+colnames(potentialoutcomes) <- c("Household id #","Y(1)","Y(0)")
+rmarkdownTable(potentialoutcomes)
+```
+ 
+(a) (4 points) What is the Average Treatment Effect (ATE) for this population?
+ATE=E[Y(1)]-E[Y(0)]=215/7-125/7=90/7=12.86
+(b) (4 points) What is the Average Treatment Effect on the Treated (ATET) and the Average Treatment Effect on the Not Treated  (ATENT)?
+ATET=E[Y(1)|D=1]-E[Y(0)|D=1]=25-10=15
+ATENT=E[Y(1)|D=0]-E[Y(0)|D=0]=33-21=12
+(c) (4 points) What is the selection bias (if any)?
+Selection Bias = E[Y(0)|D=1]-E[Y(0)|D=0]=10-21=-11
+(d) (4 points) How would your findings to (a)-(c) change if the two households who have the highest treatment effects were the two treated households (and all other households were untreated).
+Households 2 and 3 decide to take-up the microfinance program
+ATE=E[Y(1)]-E[Y(0)]=215/7-125/7=90/7
+ATET=E[Y(1)|D=1]-E[Y(0)|D=1]=27.5-2.5=25
+ATENT=E[Y(1)|D=0]-E[Y(0)|D=0]=32-24=8
+Slection Bias = E[Y(0)|D=1]-E[Y(0)|D=0]=2.5-24=-21.5
+
+*****
+
+
+# Question 3: Fun with Coin Flips (56 points total)
+In Bernoulli random assignment, each unit gets assigned to treatment with an independent coin flip (hence, Bernoulli). So let's learn how to flip some coins in *R*. 
+
+
+## Setting a randomization seed
+Like all statistical packages, *R* does not generate truly random numbers. Instead, it generates **Pseudo-Random Numbers**, which take a "seed" value and then create a number that's as good as random (if you're curious, look up the ["Mersenne Twister"](https://en.wikipedia.org/wiki/Mersenne_Twister)). It's good statistical practice to set a seed whenever you're generating random variables so that you can recreate your results later.
+```{r}
+
+# Set the seed
+set.seed(8675309)
+
+# Generate 1 random standard Uniform variable
+runif(1, min = 0, max = 1) 
+```
+
+If you set your seed to 8675309, the random number should be 0.1594836. Did you get that?
+
+**Yes? No?**
+Yes
+
+## Flipping one coin (6 points)
+There are lots of ways to flip a single coin in *R*. We'll use the `rbinom` command.
+```{r}
+p <- 0.5                                            # probability of heads
+coin_flip <- rbinom(n = 1, size = 1, prob = p)      # generate coin_flip
+coin_flip                                           # display coin_flip
+```
+
+This `rbinom` command seems useful. You can learn more about it with the help function, `?rbinom`.
+
+In the code block below, write code to flip a single coin with probability of heads of 0.8. (*Hint:* Copy-and-paste)
+```{r}
+p <- 0.8
+coin_flip <- rbinom(n=1,size=1, prob = p)
+coin_flip
+
+```
+
+## Flipping multiple coins (8 points)
+In randomized trials, we have many experimental units and therefore want to flip coins in batch (i.e., assign all units to treatment or control with a single command). Let's imagine that we have $N = 15$ units. To flip 15 coins, we change the `n` argument in `rbinom`. (Note: do not change the `size` argument, which states that we're only flipping one coin for each )
+```{r}
+N <- 15                                                # Number of units
+p <- 0.5                                               # Probability of heads
+
+many_coin_flips <- rbinom(n = N, size = 1, prob = p)   # Flip many coins
+
+many_coin_flips                                        # Display raw output to check that it worked
+```
+
+
+Now, in the code block below, write code to generate $N = 100$ coin flips with probability of heads of 0.50. Name this vector `new_flips`.
+```{r}
+N <- 100
+p <- 0.5
+new_flips <- rbinom(n=N, size=1, prob = p)
+new_flips
+```
+
+Display the 5th value of `new_flips`.
+```{r}
+new_flips[5]
+```
+
+Display the 7th to 9th values.
+```{r}
+new_flips[7:9]
+```
+
+Show two different ways to display the last value.
+```{r}
+n <- length(new_flips)
+new_flips[n]
+tail(new_flips,1)
+```
+
+Make and display a new vector that multiplies every value by 2. 
+```{r}
+new_flips2 <- 2*new_flips
+new_flips2
+```
+
+
+Still with `new_flips`, output:
+
+* The total number of heads
+* The observed probability of getting heads
+* The observed SD of getting heads
+
+(Hint: the `sum`, `mean`, and `sd` commands might be useful.)
+
+```{r}
+head_number <- sum(new_flips==1)
+head_number
+Observe_P <- mean(new_flips)
+Observe_P
+SD <- sd(new_flips)
+SD
+```
+
+
+## Sampling distribution of number of heads (6 points)
+If our ultimate goal is to randomly allocate 50 units to treatment and 50 units to control, then flipping a separate coin for each unit seems like lousy. To see just how lousy, we're going to record the number of heads we get each time we flip 100 coins. We'll repeat this whole procedure 1000 times and look at the resulting distribution. This is the "sampling distribution" for the number of heads out of a 100 coin flips.
+
+```{r}
+N <- 100        # Assumed sample size
+p <- 0.5        # Probability of heads
+n_sims <- 1000  # Generate 1000 simulations
+
+number_of_heads <- rep(NA, n_sims)      # Create an empty vector to store the number of heads
+
+for(i in 1:n_sims){   # This is called a "for" loop does the activities withinthe 
+                      # brackets (i.e. "{" and "}") n_sims times
+  
+  # Flip N coins with probability p
+  many_coin_flips <- rbinom(n = N, size = 1, prob = p)
+  
+  # Store the number of heads
+  number_of_heads[i] <- sum(many_coin_flips)
+  
+} # End 'for' loop
+
+```
+
+
+How'd we do? To see, let's plot the distribution of the number of heads. We'll use the `ggplot2` library, which you'll learn more about in the coming weeks. If you haven't already used ggplot2, be sure to install the package, using `install.packages("ggplot2")`. For now, we'll just use the `qplot` function (i.e., "quick plot"), which guesses the best plot to use. 
+```{r, warning = FALSE}
+install.packages("tibble")
+install.packages("ggplot2")
+library(ggplot2)            ## Load the ggplot2 library
+
+qplot(number_of_heads)      ## Plot "number_of_heads"
+```
+
+
+We'd also like to have some summary statistics. Now compute the following:
+
+  * Average of the number of heads
+  # Median number of heads (hint: use the "quantile" command)
+  * SD of the number of heads
+  * Maximum observed number of heads
+  * Minimum observed number of heads
+  
+  
+
+```{r}
+mean(number_of_heads)
+median(number_of_heads)
+sd(number_of_heads)
+max(number_of_heads)
+min(number_of_heads)
+```
+
+
+How often do we get fewer than 40 out of 100 heads?
+```{r}
+mean(number_of_heads < 40)
+```
+
+## Using data.table 
+Data.table is a very useful package that facilitates easy maniuplation of data. 
+You make sure that you have data.table installed and convert the data to a 
+data.table file. You also create a dummy (indicator) variable for whether or not 
+there are more than 40 heads, and the number of heads in excess of 40 for those 
+times when you do flip 40 or more heads.  Then save your file.
+
+```{r, results = 'asis',echo=FALSE,warning=FALSE}
+install.packages("data.table")
+library(data.table)         ## loading data.table package 
+
+number_of_heads_dt<- data.table(number_of_heads)      ## Creating a data.table version of # of heads
+number_of_heads_dt[,less_than_40:=number_of_heads<40] ## Creating an indicator for whether the number of 
+                                                      ## heads was less than 40
+number_of_heads_dt[less_than_40==0,excess_of_40:=number_of_heads-40] ## Creating variable for number of heads in excess of 40
+
+saveRDS(number_of_heads_dt, "number_of_heads_dt.RDS") # saving the resulting file.
+
+```
+
+
+## Try it yourself (18 points)
+In the code block below, assume that you have $N = 50$ coins and that the probability of heads is $p = 0.9$. Generate 1000 simulations of this process. Then report:
+
+* Average and SD for the number of heads
+* Minimum and maximum number of heads
+* Probability that the number of heads is less than 20
+* Probability that the number of heads is more than 45
+
+And plot the distribution of the number of heads. (*Hint*: Copy and paste...)
+
+```{r}
+N <- 50
+p <- 0.9
+n_sims <- 1000
+number_of_heads <- rep(NA, n_sims)
+for (i in 1:n_sims){
+many_coin_flips <- rbinom(n=N, size = 1,prob = p)
+number_of_heads[i] <- sum(many_coin_flips)
+}
+mean(number_of_heads)
+sd(number_of_heads)
+max(number_of_heads)
+min(number_of_heads)
+mean(number_of_heads < 20)
+mean(number_of_heads > 45)
+library(ggplot2)
+qplot(number_of_heads)
+```
+
+
+## Saving your simulation (18 points)
+You decide that you want to save convert your results to a data.table 
+and then save the results of your simulation.  Below, convert your simulation 
+to a data.table file, create an indicator for whether there were less than 20 
+heads drawn, and save the resulting file.  (*Hint*: Copy and paste)
+
+
+```{r, warning = FALSE}
+install.packages("data.table")
+library(data.table)  
+number_of_heads_dt<- data.table(number_of_heads) 
+number_of_heads_dt[,less_than_20:=number_of_heads<20]
+saveRDS(number_of_heads_dt, "number_of_heads_dt.RDS")
+
+```
+
+
