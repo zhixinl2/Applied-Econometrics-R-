@@ -1,0 +1,188 @@
+---
+title: 'Econ 590 (M2): Assignment 9'
+author: "Zhixin Lin"
+date: "November 10, 2018"
+output: 
+  html_document:
+    self_contained: no
+---
+
+* Total points: 100
+* Due Date: November 16th, 2018 at 5pm
+* Hand  in a .html copy on Compass 2G 
+* Be succinct and concise in your answers (more words is not always better!).
+
+
+# Question 1: Differences-in-Difference estimates off the effects of maternity benefits mandates  (36 points total)
+
+Before 1978, health insurance benefits for maternity were generally limited; either there was no coverage or benefits were paid as a lump sum, regardless of the cost of childbirth. Between 1975 and 1979, 23 states passed laws that outlawed treating pregnancy differently from "comparable illnesses," and mandated comprehensive coverage for childbirth in health insurance policies.
+
+Gruber (1994) considers the labor market effects of these mandates, which raised the costs of employing a certain demographic group (women of childbearing age and their husbands, under whose insurance these women might have been covered). In particular, Gruber analyzes whether the costs of these mandates were shifted to the wages of married women of childbearing age. The 23 states that passed laws that mandated childbirth coverage by health insurance policies are the "treatment states". Those states that did not pass such laws are the "comparison states".
+
+(a) (18 points) You obtain data on the average wages for married women of ages 20-40 in the treatment states before and after the enactment of the new legislation. The table is shown below
+
+![](men.png)
+
+Use this information to estimate the effect of childbirth health insurance policies. Interpret your results. Discuss the conditions necessary for these estimates to be valid (i.e., "identifying assumptions"). How could you potentially assess the validity of these conditions? 
+
+    + 1.397 - 1.369 = 0.028; 1.537 + 0.028 = 1.565; 1.513 - 1.565 = -0.052;  Married women from 20-40 covered by childbirth coverage by health insurance have 0.052 less log hourly wage than those who are not covered.
+    + Assumption: E[Y0(t=2)-Y0(t=1)|D=1]=E[Y0(t=2)-Y0(t=1)|D=0]; The condition is that wages of women in different states follow the same macro eoconomic trend.
+     + We could add state-specific time-trends to the model to test it.
+(b) (18 points)	Additionally, you obtain data on the earnings of men and women over forty and single males 20-40, a group that is not affected by the mandates. 
+
+![](women.png)
+
+How does this second analysis inform the first analysis? Does it make the initial estimate more or less plausible? 
+
+    + 1.627 - 1.63 = -0.003; 1.759 - 0.003 = 1.756; 1.748 - 1.756 = -0.08
+    + Married women from 20-40 covered by childbirth coverage by health insurance have 0.044 less log hourly wage than a group that is not affected by the mandates. It makes the first estimation more plausible.
+
+
+# Question 2: Trickle down economics? Studying the effects of the 2012 Kansas ta cuts (64 points total)
+
+In this problem you will use the data on state personal income tax revenues 
+to study the effects of the cut in state corporate, business, and personal income taxes in Kansas in 2012 discussed during lecture.    
+
+As a reminider, in 2012 Kansas passed a large-scale  tax reform that excluded much of business income from individual income taxation.  Proponents argued that supply-side incentives would increase business formation and invenstment, while opponents argued that the economic effects of the law would be too small to overcome the revenue losses.
+
+The goal of this research is to understand how these tax-cuts affected personal income tax revenues.  We can use data to understand who was right in this debate.
+
+(a) (4 points) Define treatment and potential outcomes in this setting.
+    
+    + Treatment: receiving tax cuts.
+    + Potential outcomes: Yi(0) the state personal income tax revenues of state i when it receives tax cuts. Yi(1) the state personal income tax revenues of state i when it does not receive tax cuts.
+
+(b) (4 points) Load the data-set: kansas_simple.dta:
+
+```{r}
+
+library(haven)
+kansas <- data.frame(read_stata("kansas_simple.dta")) #loading data-set 
+# variables included are:
+##state_name: name of the state
+##state_num: state number
+##year: Year
+##pers_inc_tax_levels: amount of personal income tax collected by the state in levels
+##pers_inc_tax_rel12: amount of income tax collected by the state relative to 2012 revenues (i.e. for year t, this variable is revenues_t/revenues_2012)
+
+```
+
+
+
+(c) (4 points) Create a treatment indicator (hint: this will require conditioning on both the state and year):
+
+
+```{r}
+kansas$treatment = 0
+kansas[(kansas$state_name=='Kansas') & (kansas$year>=2012),]
+kansas$treatment[c(253,254,255,256)] = 1
+table(kansas$treatment)
+
+```
+
+(d) (10 points) Estimate a differences-in-differences model of the effect of the 
+Kansas tax cuts on personal income tax revenues (using Arkansas, Iowa, and Missouri as the "control" states).   What is your estimate?  What is the 
+standard error?  Under what assumption will this estimator provide an unbiased 
+estimate of the treatment effect?
+
+
+```{r}
+library(data.table)
+new_data1 = kansas[kansas$state_name=='Kansas',]
+new_data1$po =  new_data1$pers_inc_tax_levels/1906499
+
+new_data2 = kansas[kansas$state_name=='Iowa',]
+new_data2$po =  new_data2$pers_inc_tax_levels/1911940
+
+new_data3 = kansas[kansas$state_name=='Missouri',]
+new_data3$po =  new_data3$pers_inc_tax_levels/3634615
+
+new_data4 = kansas[kansas$state_name=='Arkansas',]
+new_data4$po =  new_data4$pers_inc_tax_levels/1503749
+
+new_data <- rbind(new_data1,new_data2,new_data3,new_data4)
+
+mod = lm(po~as.factor(treatment)+as.factor(state_name)+as.factor(year),data = new_data)
+summary(mod)
+```
+    
+    +The Estimate is -0.31359. 
+    +Standard error is 0.05463.
+    +Assumption: parallel outcome trends for treatment state and control state.
+
+
+(e) (10 points) Graph the personal income taxes relative to 2012 for Kansas, and the four control states (Arkansas, Iowa, and Missouri).  What does this graph tell us about the validity of the identification discussed in part (d) above?
+
+
+```{r}
+library(data.table)
+library(ggplot2)
+new_data$year_new = new_data$year - 1999
+new_data$ever_treated = ifelse(new_data$state_name=="Kansas",1,0)
+
+ggplot(data=new_data,aes(y=pers_inc_tax_rel12,x=year_new))+
+  geom_line(aes(linetype=as.factor(state_name),colour=as.factor(ever_treated))) + geom_vline(xintercept=13)
+```
+
+    + the graph tells us the general trend is similiar for four states befor 2012, however after 2012 policy change in Kansas, Kansas began to show a different trend comparing with other three states.
+
+
+(f) (10 points) Your graph in part (e) above gave you some sense for whether or not the empirical assumption required for this differences-in-differences assumption is satisfied.  However, you wanted a more exact way of testing this assumption.  One way of testing the assumption is adding state-specific time-trends to the model in part (d).  Estimate models adding these time-trends.  Do these models support the validity of your empirical strategy?
+
+
+```{r}
+new_data$year_trend = new_data$year-1999
+mod2 = lm(po~treatment+as.factor(state_name)+as.factor(state_name)*year_trend+year_trend, data = new_data)
+summary(mod2)
+```
+     
+    + Yes, it supports our argument as the coefficent for our treatment doesnt change much and it???s still significant.
+(g) (10 points) Another way of testing the empirical assumption is estimating "Granger-causality" type models with a full set of leads and lags.  Estimate a "Granger-Causality" (also sometimes called "event-study") model using the data and graph the results.  Do the results support the validity of your empirical strategy?
+
+```{r}
+new_data$event_time = new_data$year-2012
+new_data$event_dummies = as.factor(new_data$event_time*new_data$ever_treated)
+
+fake.data <- within(new_data, 
+                    event_dummies <- 
+                      relevel(event_dummies, ref="-1")) # choosing to omit time 0 
+
+event.study.regression<- lm(data=new_data, #event study regression
+                            po~as.factor(event_dummies)+as.factor(state_name)+as.factor(year_trend))
+summary(event.study.regression)
+
+lags <- c(-12:0,1:3) # making event study time periods (note time -1 is ommitted so we manunally add it)
+y <- c(0,event.study.regression$coefficients[2:16]) # outputting event study coefficients (note outcome for time -1 is ommitted so we manually add it)
+event_study <- as.data.frame(cbind(lags,y))
+ggplot() + geom_line(aes(y=y, x=lags), color="red", size=1, data=event_study) +
+  labs(x="Year relative to treatment", y="Change in outcome relative to event time -1") +geom_vline(xintercept=0)
+
+```
+
+(h) (12 points) Re-do parts (d) and (e) using North Dakota and California as the control group.  Does your answer change?  What do you think this changing answer implies about the usefullness of California and North Dokota versus Arkansas, Iowa, and Missouri as a control group for Kansas?.
+
+
+```{r}
+new_data1 = kansas[kansas$state_name=='Kansas',]
+new_data5 = kansas[kansas$state_name=='North Dakota',]
+new_data6 = kansas[kansas$state_name=='California',]
+
+new_datah =rbind(new_data1,new_data5,new_data6)
+
+#correct form 
+mod2 = lm(pers_inc_tax_rel12~treatment+as.factor(state_name)+as.factor(year),data = new_datah)
+
+summary(mod2)
+
+new_datah$year_new = new_datah$year - 1999
+new_datah$ever_treated = ifelse(new_datah$state_name=="Kansas",1,0)
+
+ggplot(data=new_datah,aes(y=pers_inc_tax_rel12,x=year_new))+
+  geom_line(aes(linetype=as.factor(state_name),colour=as.factor(ever_treated))) + geom_vline(xintercept=13)
+```
+
+    + Yes, the answer changes from -0.31359 to -0.43176. Arkansas, Iowa, and Missouri as a control group for Kansas is more useful,becasue the above tests give us reason to believe that the assumption holds and the result is unbiased. And the result graph shows that California and North Dokota might not hold the common trend assumption as as a control group for Kansas. 
+
+
+
+
