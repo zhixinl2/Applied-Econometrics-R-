@@ -1,0 +1,362 @@
+---
+title: 'Econ 590 (M2): Assignment 8'
+author: "Zhixin Lin"
+date: "October 25, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+* Total points: 100 (+ 40 potential extra credit points)
+* Due Date: November 1, 2018 at 10:05am
+* Hand  in a .html copy on Compass 2G OR a hard copy in class
+* Be succinct and concise in your answers (more words is not always better!).
+
+# Question 1: Tobacco use and low birth-weight:
+
+Setup
+An important question in health policy is the effect of maternal smoking during pregnancy on child birth weight. This is a notoriously difficult effect to disentangle. In this problem set, we follow a famous analysis from [Almond et al. (2005)](http://qje.oxfordjournals.org/content/120/3/1031.abstract), who assemble detailed data on family characteristics, maternal behavior, and birth outcomes. 
+
+The data set `lbw_data` contains:
+
+- `child_birthwt`: the child's birth weight (in grams), which is the primary outcome of interest
+- `use_tobacco`: an indicator for whether the mother used tobacco during pregnancy, which is the "treatment" of interest
+
+
+In this assignment, you should match on the following covariates:
+
+- `any_drink_on_avg`
+- `mother_foreign_born`
+- `mother_hispanic_other`
+- `mother_black`
+- `mother_educ_hs`
+- `mother_educ_less_than_hs`
+- `mother_cardiac_disease`
+- `mother_lung`
+- `mother_diabetes`
+
+# Load data and examine outcome
+Let's load in the data here.
+```{r}
+load("lbw_data.RData")  ## loads the object 'lbw_data'
+```
+
+Now let's look at the overall outcome distribution.
+```{r}
+library(ggplot2)
+ggplot(data = lbw_data) + geom_density(aes(x = child_birthwt), fill = I("grey")) + 
+  theme_minimal() + xlab("Birthweight")
+```
+
+
+And separately by tobacco use:
+```{r}
+ggplot(data = lbw_data) + geom_density(aes(x = child_birthwt, fill = as.factor(use_tobacco)), alpha = 0.5) + 
+  theme_minimal() + labs(x = "Birthweight", fill = "Mother Uses\nTobacco")
+
+simple.reg <- lm(child_birthwt ~ use_tobacco,data=lbw_data)
+
+```
+
+Clearly there's a strong relationship between tobacco use and child birthweight. If we look at a simple regression of birthweight on earnings, we find that babies whose mothers smoke way an average of `r round(coefficients(simple.reg)['use_tobacco'])` grams less than babies whose parents do not smoke (recall I can insert an R number or results in text using the `r ` commmand.
+
+
+However, is this relationship causal?
+
+# A) Setup (16 points): 
+
+1a. (4 points) What are potential outcomes in this setting?  
+* Y1i : child birth weight of individual i when his or her mother used tobacco during pregnancy.
+* Y0i : child birth weight of individual i when his or her mother did not use tobacco during pregnancy.
+
+1b. (4 points) Describe one potential source of selection bias in this setting?
+The mothers who used tobacco during pregnancy might pay less attention to her own health, as well as the health of baby. So the baby might originally have less weight because of relative poor nutrition. 
+
+1c. (4 points) Which covariates do you suspect are most strongly correlated with outcomes?
+* any_drink_on_avg
+* mother_educ_hs
+* mother_educ_less_than_hs
+* mother_cardiac_disease
+* mother_lung
+* mother_diabetes
+* Drinking behavior, education levle, heart and lung diseases, and diabetes are strongly correlated with the outcome, because drinking reflects how much mothers care about their health and thier babies' health. Education level reflects mothers' knowledge level, which affects if the mother knows what to do and what to not do in the period of preganancy. Diseases could be genetic and hereditary to the next generations, which will highly likely affect babies' birth weight.
+
+1d. (4 points) Which covariates do you suspect are most strongly correlated with treatment?
+* mother_educ_hs
+* mother_educ_less_than_hs
+* education levels are correlated with treatment, because people with higher education level are less likely to smoke and poeple with lower education level tend to smoke more.
+
+# B) Analysis (84 points):
+
+Your analysis assignment is to use matching (via the `MatchIt` package in *R* and other functions) to estimate the effect of maternal tobacco use during pregnancy on child birthweight. 
+
+###Using weights
+For some of these problems, we may have to use weights, which we haven't done so far in this course.  Weights emphasize some observations more than others.  For example, if some observations have weight 2 and others 1, the ones with weight 2 are given twice as much empahsis as those with weight 1 (formally speaking, when you minimize the sum of squared residuals, weights put more emphasis on some residuals more than others)  
+
+In the linear model command we use to estimate ols, lm, we specify the weights using the "weights" option.  For example, below I estimate a linear model using equal weights (=1 for everyone):
+
+```{r}
+
+N <- nrow(lbw_data) # get sample size of data-set
+fake.weights <- rep(1,N) # generate vector of length N of ones 
+simple.reg2 <- lm(child_birthwt ~ use_tobacco,data=lbw_data,weights=fake.weights) # estimate simple model with weights = 1
+
+
+```
+
+### Regression (6 points)
+For the selected covariates, use linear regression to estimate the treatment effect, controlling for linear functions of the covariates.  Under what assumptions would this produce an unbiased estimate of a treatment effect?  Does it estimate the average treatment effect?  If not, why not?
+
+```{r}
+simple.reg3 <- lm(child_birthwt ~ use_tobacco+mother_educ_hs+mother_educ_less_than_hs,data=lbw_data)
+summary(simple.reg3)
+```
+   
+    + Conditional Independence Assumption and Full Overlap Assumption. No, it is not , because we add other covariates as control variables. it means that the treatment effect we got here is weighted average treatment effect according to the other covariates. 
+
+### Matching example
+To give you an example, we'll walk you through matching on one variable (age) using MatchIt.  One important thing to remember when using MatchIt is that the weights produced by MatchIt produce estimates of the effect of Average Treatment on the Treated (ATET) NOT the ATE.
+
+```{r}
+
+library(MatchIt)
+m.out.agematch <- matchit(use_tobacco ~ mother_age, data = lbw_data, method = "exact") # creating matched pairs
+
+summary(m.out.agematch) # summarizing match
+m.data.agematch <- match.data(m.out.agematch) 
+# saving match as match data.  this saved file includes only the matched observations and includes the required weights to compute the treatment effect
+# 14 control and 1 treatment unit are discarded in this example. 
+
+results.agematch<- lm(child_birthwt ~ use_tobacco,data=m.data.agematch,weights=weights) # estimating treatment effects using matching weights (Note: this produces estimates of the ATET NOT the ATE)
+
+summary(results.agematch)
+
+```
+
+
+###Exact Match (22 points)
+For the selected covariates, perform an exact match. (6 points)
+
+```{r}
+library(MatchIt)
+m.out.educ.match1 <- matchit(use_tobacco ~ mother_educ_hs+mother_educ_less_than_hs, data = lbw_data, method = "exact") # creating matched pairs
+
+```
+
+Are there any treatment or control observations dropped during the match?  What does this mean about your ability to estimate ATE, ATET, or ATENT? (4 points)
+
+```{r}
+m.data.educmatch1 <- match.data(m.out.educ.match1) 
+summary(m.out.educ.match1)
+```
+* There is no observations dropped during the match. This means we can estimate ATE, ATET and ATENT. 
+
+Are the treatment and control groups more similar than before? (4 points)
+```{r}
+library(ggplot2)
+ggplot(data=m.data.educmatch1)+geom_density(aes(x = child_birthwt, fill = as.factor(use_tobacco)), alpha = 0.5)
+```
+
+    + Yes, it is 
+Using the matched data, display the final regression. Interpret your results. (4 points)
+
+```{r}
+
+results.educmatch1<- lm(child_birthwt ~ use_tobacco,data=m.data.educmatch1,weights=weights) # estimating treatment effects using matching weights (Note: this produces estimates of the ATET NOT the ATE)
+
+summary(results.educmatch1)
+```
+    
+    + it means that if a mother smokes during the pregnent, the babe???s weight will decrease 189.415 
+
+
+If the data-set also included "income" as a covariate, you would want to create income bins before you used it for matching. Why? (4 points)
+
+* becasue the income has many different value, we can not exact match the observation according to the income. So one way to solve the problem is to creat income bins then we can coarsely match the income
+
+### Nearest neighbor (Mahalanobis distance) (10 points)
+Perform the same analysis above using Mahalanobis distance (with the same covariates). How and why do your results differ from the exact match?
+```{r}
+set.seed(1234)
+m.out.educ.match2 <- matchit(use_tobacco ~ mother_educ_hs+mother_educ_less_than_hs, data = lbw_data,distance="mahalanobis",method="nearest",replace=TRUE,ratio=1)
+m.data.educmatch2 <- match.data(m.out.educ.match2) 
+summary(m.out.educ.match2)
+results.educmatch2<- lm(child_birthwt ~ use_tobacco,data=m.data.educmatch2,weights=weights)
+summary(results.educmatch2)
+```
+
+### Nearest neighbor (Propensity Score distance) (18 points)
+
+Using the covariates above, estimate the propensity score using a logit model (hint: you can use the "glm" command then afterwards use the commmand "fitted to find the estimated propensity scores)  Plot the distribution of propensity scores in both treatment and control.   How good is the overlap? (6 points)
+
+```{r}
+library(ggplot2)
+logit = glm(use_tobacco ~ mother_educ_hs+mother_educ_less_than_hs,family = binomial(link = "logit"),data = lbw_data)
+pscore = logit$fitted.values
+lbw_data2 <- cbind(lbw_data,pscore)
+ggplot(data = lbw_data2) + geom_density(aes(x = pscore, fill = as.factor(use_tobacco)), alpha = 0.5) + 
+  theme_minimal() + labs(x = "Pscore", fill = "Mother Uses\nTobacco")
+```
+
+    + the overlap is good because in the most subclassified group, we have enough treatment and control obeservations
+Use your estimated propensity score model and the MatchIt command to estimate a propensity score matching model (hint: enter the estimated propensity-score (also called a pscore) as a matching variable and use nearest neighbor matching). (6 points)
+
+```{r}
+set.seed(1234)
+m.out.educ.match3 <- matchit(use_tobacco ~ pscore, data = lbw_data,distance="mahalanobis",method="nearest",replace=TRUE,ratio=1)
+m.data.educmatch3 <- match.data(m.out.educ.match3) 
+summary(m.out.educ.match3)
+results.educmatch3<- lm(child_birthwt ~ use_tobacco,data=m.data.educmatch3,weights=weights)
+summary(results.educmatch3)
+```
+
+
+Perform the same analysis with propensity score matching just using the MatchIt command (and lm) i.e. dont' manually compute the propensity score yourself).  (6 points)
+
+```{r}
+set.seed(1234)
+m.out.educ.match4 <- matchit(use_tobacco ~ mother_educ_hs+mother_educ_less_than_hs, data = lbw_data,distance="logit",method="nearest",replace=TRUE,ratio=1)
+m.data.educmatch4 <- match.data(m.out.educ.match4) 
+summary(m.out.educ.match2)
+results.educmatch4<- lm(child_birthwt ~ use_tobacco,data=m.data.educmatch4,weights=weights)
+summary(results.educmatch4)
+```
+
+
+### Propensity score reweighting. (12 points)
+Now we'll move beyond propensity score matching.  Perform the same analysis above using propensity score reweighting.  How do your results differ from above? Does this reweighting estimate the same estimand as your results above?  Why or why not?
+
+```{r}
+(ATE_rp<-mean((lbw_data2$use_tobacco*lbw_data2$child_birthwt)/lbw_data2$pscore-((1-lbw_data2$use_tobacco)*lbw_data2$child_birthwt)/(1-lbw_data2$pscore)))
+```
+
+    + The result is larger than the result above. it is not the same estimand, because the above one produces estimates of the ATET NOT the ATE
+
+Include a few sentences at the end explaining your result in words. Recall that you can display an R object in the middle of a paragraph like this: the average birthweight in the sample is `r round(mean(lbw_data$child_birthwt))` grams.
+
+    
+    + generally we use four methonds,such that OLS, exact matching, nearest matching with respect to mahalonobis or with respect to p score,and propensity score reweighting,to find the causal effect between mother smoking during pregnant and the babe???s weight. the results we get seperately are -189.415, -189.415, -188.99,-188.99,-197.5626. combining above results, we can conclude that smoking during th pregnant causes the babe???s weight decrease. the value of weight loosing ranging from -188 to -200.
+### Matching summary (16 points)
+
+Explain the assumptions needed to identify a causal effect for matching. Why might they not be valid in this application?  Name potential ways that you could investigate the plausibility of this assumption.
+
+    + the assumption we need is conditional independent assumption and full overlap. for CIA, we still need to check whether they robust or not
+  
+  
+# EXTRA CREDIT QUESTION (NOT REQUIRED): Did I make the right choice? (40 points total)
+
+*Type your answers below using markdown.*
+
+A styalized version of the Dale and Krueger (2002) regression discussed in class can be written like this:
+
+$$ Y_i = \rho C_i + \text{Dummy Controls}_i + \epsilon_i $$
+
+where $C_i$ indicates private school attendance.  The Dummy Controls in this equation indicate sets of schools to which applicants have applied and been accepted.  These dummy variables are fully saturated - i.e. they include all possible combinations of schools that students were accepted and applied to.
+
+(a) (4 points) Use regression anatomy formulas to show that the Dale-Krueger (DK) estimator of private school effects discards information on students in application/admissions groups that consist entirely of private or public schools.
+
+(b) (4 points) Explain why the result in (a) facilitates intepretation of the DK regression estimates as a matching estimator.
+
+As you did above, let's explore different estimators of this model using simulation.  Specifically, we'll let Dummy controls contain 10 different groups of applications/acceptances.  
+
+The code below will help you get started
+
+```{r}
+# Set the seed
+set.seed(812809)
+
+#size of groups of dummy variables
+group_size <- 100
+
+# Creating variable for indicators for each of the 10 groups:
+dummy_variables <- rep(1:10, group_size)      # Create a vector with group indicators
+
+# Creating potential outcomes without treatment
+potential_outcomes_mean <- c(50,40,55,70,80,100,90,150,200,250)
+potential_outcomes0 <- potential_outcomes_mean[dummy_variables] +rnorm(n=10*group_size,mean=0,sd=20)
+
+# Assigning treatment 
+# creating random number for each observation
+rand <- runif(10*group_size,min=0,max=1)
+fake_data <- data.frame(dummy_variables,rand) # creating data frame
+
+# treating half of observations in each group.  Why does this procedure treat half of each group?
+medians <- aggregate(fake_data$rand,list(fake_data$dummy_variables),median)
+fake_data$treat <- fake_data$rand>medians[,2,dummy_variables]
+
+# creating potential outcome when treated
+treat_effect <- c(60,70,70,50,40,30,20,10,10,0)
+potential_outcomes1 <- potential_outcomes0+treat_effect[dummy_variables]+rnorm(n=group_size*10,mean=0,sd=10)
+
+# creating observed outcome
+fake_data$y_observed <- potential_outcomes1*fake_data$treat+potential_outcomes0*(1-fake_data$treat)
+
+```
+
+(c) (4 points) What is the true Average Treatment Effect?
+
+```{r}
+(ATE<-mean(potential_outcomes1)-mean(potential_outcomes0))
+```
+
+(d) (8 points) What estimate would you get by taking the difference in means between treatment and control?  What estimate would you get using regression?  Are these the same?  Do they equal the ATE?
+
+```{r}
+# Set the seed
+set.seed(113513694)
+
+(ATE_hat<-mean(fake_data[which(fake_data$treat==TRUE),"y_observed"])-mean(fake_data[which(fake_data$treat==FALSE),"y_observed"]))
+model_e<-lm(data=fake_data,y_observed~treat)
+model_e$coefficients[2]
+
+```
+
+(e) (6 points) Estimate the treatment effect using the matching estimator (exactly matching on group)?  Estimate the treatment effect using regression to control for group-dummies.  Are these the same?  Why or why not?
+
+```{r}
+match_e<-matchit(data=fake_data,treat~dummy_variables,method='exact')
+match_e.data<-match.data(match_e)
+Mmodel_e<-lm(data=match_e.data,y_observed~treat)
+Mmodel_e$coefficients[2]
+```
+
+    + No the result isn't same with above result, because here the estimand is ATET
+(f) (14 points) What if the probability of attending a private college was not constant across groups.  Imagine instead that the treatment probabilities are given by the column below.  How would your answers to (c)-(e) change (if at all)?  Why?  
+
+If they differ, does it mean that the regression estimator is biased? 
+
+    + the ATE in each question (c)-(e) increases after we change the probability of assigning treatment. the reason is that in each group the probabilty of unit getting treatment is different. then in some group, units may more likely to get treatment.
+Discuss the intuition in the context of the formula connecting matching and regression estimates. 
+
+    + no, because when we use matching to calculte the causal effect, the estimand we want to estimate is ATET. However, in the regression, the estimand we want to estimate is ATE
+Hint # 1: One way of answering this question is to re-do the analysis in (c)-(e) above using these treatment assignment probabilities below.  If you go this route, you should be able to re-use most of your code from above, except you need to change the lines of code where you assign treatment, i.e. you  need to modify the lintes indicated below:
+
+
+
+```{r}
+new_fdata<-fake_data
+treat_probability <- c(0,.05,0,.1,.2,.3,.5,.7,.9,1)
+quantile<-matrix(0,nrow = 10, ncol = 1) 
+for (i in 1:10){
+quantile[i] <- qunif( treat_probability[i],min=0,max=1)}
+critical_values<-data.frame(dummy_variables,quantile)
+new_fdata$treat <- new_fdata$rand<critical_values[,2,dummy_variables]
+new_fdata$y_observed <- potential_outcomes1*new_fdata$treat+potential_outcomes0*(1-new_fdata$treat)
+NATE<-mean(potential_outcomes1)-mean(potential_outcomes0)
+NATE
+#regression
+set.seed(113513694)
+library(data.table)
+NATE_hat<-mean(new_fdata[which(new_fdata$treat==TRUE),"y_observed"])-mean(new_fdata[which(new_fdata$treat==FALSE),"y_observed"])
+NATE_hat
+Nmodel_e<-lm(data=new_fdata,y_observed~treat)
+summary(Nmodel_e)
+#Matching 
+Nmatch_e<-matchit(data=new_fdata,treat~dummy_variables,method='exact')
+summary(Nmatch_e)
+Nmatch_e.data<-match.data(Nmatch_e)
+NMmodel_e<-lm(data=Nmatch_e.data,y_observed~treat)
+summary(NMmodel_e)
+```
+
