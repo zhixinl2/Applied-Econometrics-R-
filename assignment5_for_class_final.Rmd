@@ -1,0 +1,167 @@
+---
+title: 'Econ 590 (M2): Assignment 5'
+author: "Zhixin Lin"
+date: "Otober 10, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+* Total points: 100
+* Due Date: Ocotber 16, 2018 at 10:05am
+* Hand  in a .html copy on Compass 2G OR a hard copy in class
+* Be succinct and concise in your answers (more words is not always better!).
+
+
+# Question 1: Cluster Randomization, Individual Randomization, and Bad Control (100 points total)
+
+
+Prof. Toossi has enlisted the MSPE class to help evaluate a tutoring program for undergraduate students.  The tutoring program will provide extra help for undergraduate students taking introductory microeconomics.  Prof. Toossi is trying to determine whether cluster or individual randomization should be done.  The outcome variable of interest is the score on the final exam in the course (Y).  You also observe W, the midterm score in the course.  The tutoring starts at the beginning of the semester.
+
+*Type your answers below using markdown*
+
+The function below simulates the confidence intervals and estimated ATE of an RCT using either individual or cluster 
+randomization, ASSUMING no spillovers.  It allows you to input different ICCs, and other parameters.
+
+```{r, results = 'asis',echo=FALSE}
+# this defines a function that simulates the confidence interval and treatment effect 
+# of an RCT using either individual or cluster randomization assuming 
+simulate_ATE <- function(N = 1000,
+                         J = 50,
+                         ATE_true = 0.5,
+                         sigma_y = 1,
+                         icc = 0.1,
+                         sigma_tau = 0.1){
+  
+  
+    ## define clusters
+    cluster <- rep(1:J, each = N/J)
+  
+    ## generate fake cluster-level errors
+    sigma_alpha <- sqrt( sigma_y^2 * icc/(1 - icc) )
+    alpha_J <- rnorm(J, mean = 0, sd = sigma_alpha)
+    
+    ## generate fake individual-level data
+    Y0 <- rnorm(N, mean = 0, sd = sigma_y) + alpha_J[cluster]
+    Y1 <- Y0 + ATE_true + rnorm(N, mean = 0, sd = sigma_tau)
+    
+    
+    ### INDIVIDUAL-LEVEL RANDOM ASSIGNMENT
+    Z_indiv <- rep(0, N)
+    Z_indiv[sample( c(1:N), N/2 )] <- 1
+    Y_obs_indiv <- ifelse(Z_indiv, Y1, Y0)
+    
+    
+    ### CLUSTER-LEVEL RANDOM ASSIGNMENT
+    Z_cluster <- rep(0, J)
+    Z_cluster[sample( c(1:J), J/2 )] <- 1
+    Z_cluster_extended <- Z_cluster[cluster]
+    
+    Y_obs_cluster <- ifelse(Z_cluster_extended, Y1, Y0)
+    
+    
+    ### CALCULATE ATE
+    lm_indiv <- lm(Y_obs_indiv ~ Z_indiv)
+    lm_cluster <- lm(Y_obs_cluster ~ Z_cluster_extended)
+  
+    
+    ### OUTPUT
+    c("indiv" = coef(lm_indiv)[2],
+      "cluster" = coef(lm_cluster)[2])
+}
+
+
+
+```
+ 
+Below, we simulate the effects of the RCT with a sample size of 1000 students and 20 classrooms (i.e. 50 students per classroom) and an ICC of .2.  We then plot the confidence intervals.  Note that this simulation assumes that there are no spillovers from the RCT to non-treated individuals within classroom.
+
+```{r}
+n_sims <- 500 # number of simulations
+ATE_out <- t(replicate(n_sims, simulate_ATE(N = 1000,
+                                            J = 20, 
+                                            icc = .2)  )) # this runs simulate_ATE n_sims times, generating an estimate of the distribution of the ATE in both a cluster and individual randomized controlled trial  
+
+boxplot(ATE_out, ylim = c(-0.6, 1.8),
+        names = c("Indiv", "Cluster")) # shows the box and wisker plot showing the mean (dark line), 25th-75th percentiles (box) and 1st-99th percentiles (whiskers coming out from the box)
+
+```
+
+
+NOTE: the graph above shows a boxplot where the dark line in the middle shows the mean, the box shows the 25th-75th percentiles, and the "whiskers" coming out show the 1st - 99th percentiles.
+
+(a) (10 points) How does the average estimated ATE compare for the cluster and individual randomized designs?  Do they differ?  Why or why not?
+* The average ATEs for thew cluster and individual designs are the same. Because the cluster randomized designs give everyone the same status compared to the individaul randomzied designs. 
+(b) (10 points) How does the the width of the confidence interval differ for the cluster and individual randomzed design?  Why do you think this is the case?
+* The width of the confidence interval of RMD is larger compared to that of IMD. Because the standard error of the RMD is larger than that of individual. As a result, the confident interval gets nlarger as well. 
+
+(c) (15 points) Use the simulate_ATE function to explore how the confidence intervals change if you increase the number of clusters, keeping the number of total individuals fixed.  Try out 40, 100, and 500 clusters (i.e. classroom sizes of 25, 10, and 2).  Why do you think increasing the number of clusters changes the confidence intervals for the cluster RCT vs. the indivdual RCT?
+HINT: Copy and paste from the example above and change the J input.
+
+```{r}
+n_sims <- 500 
+ATE_out <- t(replicate(n_sims, simulate_ATE(N = 1000,
+                                            J = 40, 
+                                            icc = .2)  ))
+boxplot(ATE_out, ylim = c(-0.6, 1.8),
+        names = c("Indiv", "Cluster")) 
+n_sims <- 500 
+ATE_out <- t(replicate(n_sims, simulate_ATE(N = 1000,
+                                            J = 100, 
+                                            icc = .2)  ))
+boxplot(ATE_out, ylim = c(-0.6, 1.8),
+        names = c("Indiv", "Cluster")) 
+n_sims <- 500 
+ATE_out <- t(replicate(n_sims, simulate_ATE(N = 1000,
+                                            J = 500, 
+                                            icc = .2)  ))
+boxplot(ATE_out, ylim = c(-0.6, 1.8),
+        names = c("Indiv", "Cluster")) 
+```
+
+* Increasing the number of clusters could decrease the naive SE infaltion factor, as the result the sandard error of the cluster will decrease, hence the confidence interval of the cluster will decrease.  
+
+
+(d) (15 points) Use the simulate_ATE function to explore how the confidence intervals change if you change the ICC, keeping the number of clusters fixed at 20 and the number of total observations fixed at 1000.  Try out ICCs of .0001, .1, .2, and .8.  Why does increasing or decrease the ICC change the confidence intervals for the cluster RCT vs. the indivdual RCT int he way that you observe?
+HINT: Copy and paste from the example above and change the ICC input.
+
+```{r}
+n_sims <- 500 
+ATE_out <- t(replicate(n_sims, simulate_ATE(N = 1000,
+                                            J = 20, 
+                                            icc = .0001)  ))
+boxplot(ATE_out, ylim = c(-0.6, 1.8),
+        names = c("Indiv", "Cluster")) 
+n_sims <- 500 
+ATE_out <- t(replicate(n_sims, simulate_ATE(N = 1000,
+                                            J = 20, 
+                                            icc = .1)  ))
+boxplot(ATE_out, ylim = c(-0.6, 1.8),
+        names = c("Indiv", "Cluster")) 
+n_sims <- 500 
+ATE_out <- t(replicate(n_sims, simulate_ATE(N = 1000,
+                                            J = 20, 
+                                            icc = .2)  ))
+boxplot(ATE_out, ylim = c(-0.6, 1.8),
+        names = c("Indiv", "Cluster")) 
+n_sims <- 500 
+ATE_out <- t(replicate(n_sims, simulate_ATE(N = 1000,
+                                            J = 20, 
+                                            icc = .8)  ))
+boxplot(ATE_out, ylim = c(-0.6, 1.8),
+        names = c("Indiv", "Cluster")) 
+```
+
+* Increasing the ICC will increase the naive SE inflation factor, as the a result, the standard error of the cluster will increase, hence the confidence interval of the cluster will increase. 
+
+(e) (15 points) Based on your results in (a)-(d), what do you think is a better choice in this setting, doing a cluster randomized trial or individual randomzied trial? 
+* individual randomized trial. Because cluster randomized cluster gives us a less precise estimiate. And the assumption of no spillover holds, so individual randomization can give us a more precise estimate. 
+
+(f) (15 points) Prof. Toossi informs you that the economics department has been hearing rumors that students receiving tutoring have been sharing tips and information they've been given to other students within their classroom.  Would this change the conclusion you reached in part (e)?  Why or why not?
+* This could change the conclusion, because it makes the Spillovers raises. Sharinng tips and innformation to other students within the classroom is a case that the program changes outcomes for non-participants, and it is a positive spillover.
+
+(g) (20 points) A classmate, concerned about the size of the standard errors in the cluster randomziation design, suggests that you could control for the students midterm scores (W) when testing the effects of the tutoring program, which starts the first week of the semester, on the test scores on the final (Y).  Is this a good idea?  Why or why not?  Provide a formal justification for your answer.
+* No, because it is a bad control. Midterm scores is not a pre-treatment but a function of the treatment because it is on the test scores on the final (Y). As a result, it would lead a selection bias. 
+
+
