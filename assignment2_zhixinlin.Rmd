@@ -1,0 +1,300 @@
+---
+title: 'Econ 590 (M2): Assignment 2'
+author: "Zhixin Lin"
+output:
+  html_document: default
+  pdf_document: default
+date: September 6th, 2018
+---
+
+* Total points: 100
+* Due Date: September 13, 2018 at 10:05am
+* Be succinct and concise in your answers (more words is not always better!).
+
+*****
+
+
+# Question 1: Randomization (25 points total)
+
+Recall the example in question 2 from last assignment: 
+
+After graduation, you start working on a study of the effects of a microfinance program  for low-income households run by First Valley Bank in the Philippines.  The program provides business loans to households with small businesses. 
+
+There are seven total households in the neighborhood that the microfinance bank currently works in. Their potential outcomes are shown in the table below. 
+
+
+```{r, results = 'asis',echo=FALSE}
+
+chooseCRANmirror(ind=90) #set the CRAN repository for the session
+
+rmarkdownTable <- function(df){
+  cat(paste(names(df), collapse = "|"))
+  cat("\n")
+  cat(paste(rep("-", ncol(df)), collapse = "|"))
+  cat("\n")
+
+  for(i in 1:nrow(df)){
+    cat(paste(df[i,], collapse = "|"))
+    cat("\n")
+    }
+invisible(NULL)
+}
+
+id <- c(1,2,3,4,5,6,7)
+y1 <- c(20,25,30,20,25,60,35)
+y0 <- c(10,5,0,20,10,55,25)
+
+potentialoutcomes <- data.frame(id,y1,y0)
+colnames(potentialoutcomes) <- c("Household id #","Y(1)","Y(0)")
+rmarkdownTable(potentialoutcomes)
+```
+ 
+*Type your answers below using markdown*
+
+After working with First Valley Bank for a few months, you begin trying to convince them to conduct a rigorous evaluation of their microfinance program.
+
+a) (5 points) Provide an argument for why randomization would help First Valley Bank determine the impact of their microfinance program?
+Randomization would eliminate the effect of selection bias when First Valley Bank investigated the effect of the program. As a result, the result of the real impact of their program can be more precisely.
+b) (5 points)  Convinced by your argument in part (a), First Valley Bank decides to randomize access to loans going forward.  Suppose that the randomization assigns households 4 and 6 to receive loans.  What will the estimated effect of the program be?
+The estimated effect of the program= E[Y(4,1)+Y(6,1)]-E[Y(1,0)+Y(2,0)+Y(3,0)+Y(5,0)+Y(7,0)]=40-10=30
+c) (5 points)  What is the standard error of this estimate?  Provide a general formula and the exact estimate in this case. [Hint: check your notes]
+The general formula is s.e.(ATE)=sqrt((σ1^2/N1)+(σ2^2/N2)), in this case, the exact erstimate is sqrt(var(ATE)) = 20.43282
+d) (5 points)  What is the confidence interval for this estimate? 
+The 95% confidence interval for this estimate is [30-1.96·20.43,30+1.96·20.43]=[-10.04832,70.04832]
+(e) (5 points) Is the experimental estimate close to the estimand (i.e. the true Average Treatment Effect)?  Why or why not?  Does this contradict the argument you made in part (a) for why randomization is a good approach to estimating the ATE? Why or why not?
+No, the experimental estimate is 30. However, the true treatment effect is 12.86. So the experimental estimate is far from the true value, which is about 1.39 s.e(ATE). However, this does not contradict the argument in part(a), because the randomization is to use the average of estimates in a lot of experiments to estimating the ATE.
+
+*****
+
+# Question 2: Computing treatment effects using real data! (75 points total)
+
+*Type your answers below using markdown *
+
+The file LalondeShort.csv contains data on the National Supported Work (NSW) demonstration from the late 1970s. The NSW was designed to help disadvantaged workers lacking basic job skills move into the labor market by giveng them work experience and counseling in a shelted environment.  Qualified applicants were randomly assigned to treatment or control in 1975, and their outcomes were measured annually until 1979. This demonstration program was a precursor to the JTPA demonstrations that we have been discussing during class. 
+
+The NSW programs were run in ten sites across the US.  Treated households were guaranteed a job for 9 to 18 months and met frequently with an employment counselor to discuss their performance and any problems they were having on the job. 
+
+The goal of the policymakers running the evaluation was to determine whether the job-training program was promising enough to warrant trying out on a larger scale.
+
+We're going to do some analysis of the experimental NSW dataset.  You can read the data-set using the command below.  The "treat" variable is an indicator of treatment status, while "re1978" measures the individuals' earnings in 1978, after they had finished their training program.
+
+### Read NSW Data
+
+```{r}
+library(readr)
+# this inputs the data from a csv (comma-separated value) file
+# (note: make sure you keep LalondeShort.csv and the markdown file in the same folder)
+nsw <- read_csv("LalondeShort.csv")
+
+```  
+
+### Compute summary statistics (10 points)
+
+You should compute:
+
+  * Number of individuals assigned to treatment
+  * Number of individuals assigned to control
+  * Average earnings for treated individuals
+  * Average earnings for control individuals
+  * Standard deviation of earnings for treated individuals
+  * Standard deviation of earnings for control individuals
+  
+```{r}
+library(readr)
+nsw <- read_csv("/Users/kevinlin/Documents/Applied/homework/2/LalondeShort.csv")
+sum(nsw$treat)
+length(nsw$treat)-sum(nsw$treat)
+mean(nsw$re78[1:sum(nsw$treat)])
+mean(nsw$re78[(sum(nsw$treat)+1):length(nsw$treat)])
+sd(nsw$re78[1:sum(nsw$treat)])
+sd(nsw$re78[(sum(nsw$treat)+1):length(nsw$treat)])
+```
+
+
+### Possible randomizations (10 points)
+
+How many possible randomized assignments of workers to the training program could have been done (given the sample size 
+and the number of treated observations.  Assume that complete randomization, where the chosen number of workers are 
+randomized, is being done)?
+
+HINT: Think back to the combinatorics you learned during high school math...
+  
+```{r}
+choose(445,185)
+```
+
+
+### Average Treatment Effects (10 points)
+
+Calculate the difference in average earnings between individuals assigned to the treatment and control groups, and the standard error for the difference.  Using these values, construct a 95% confdence interval for the difference (allowing for heteroskedasticity).
+
+```{r}
+average_earning_treatment <- mean(nsw$re78[1:sum(nsw$treat)])   
+average_earning_control <-mean(nsw$re78[(sum(nsw$treat)+1):length(nsw$treat)])
+difference_in_average_earning <- average_earning_treatment-average_earning_control
+standard_error_difference <- sqrt(sd(nsw$re78[1:sum(nsw$treat)])^2/sum(nsw$treat)+sd(nsw$re78[(sum(nsw$treat)+1):length(nsw$treat)])^2/(length(nsw$treat)-sum(nsw$treat)))
+confidentintervellower <- difference_in_average_earning-1.96*standard_error_difference
+confidentintervelupper <- difference_in_average_earning+1.96*standard_error_difference
+confidentintervellower
+confidentintervelupper
+```
+
+
+
+How would your standard error and confidence intervals change if you assumed homoskedasticity?  What does homoskedasticity mean?
+
+```{r}
+sd_homo <- sd(nsw$re78)*sqrt(
+(1/length(which(nsw$treat == 1)))+(1/length(which(nsw$treat == 0)))
+)
+homo_minci = difference_in_average_earning - 1.96*sd_homo
+homo_maxci = difference_in_average_earning + 1.96*sd_homo
+homo_minci
+homo_maxci
+#Homoskedasticity means the variance of the error term is constant.In this case it indicates that control & treated group have the same variance.
+```
+
+
+### Testing choices (5 points)
+
+*   Do you think you should conduct a one or two-sided hypothesis test in this case?  Why or why not? 
+One-sided hypothesis should be better. Because in this case we care more about the positive effect of job training program.
+*   What do you think a good null hypothesis would be for the NSW program?  Why?
+NSW program has no efffect on individuals’ earnings.
+
+
+### Complete randomization, simmulating treatment assignments under the null (40 points)
+
+Last assignment, you learned to conduct Bernoulli ranodmized trials.  Here, you'll learn to do complete randomization.  We'll use this new skill to help us conduct a hypothesis test that the effect of the NSW demonstration program was 0. 
+
+To completely randomize, we choose a random number for each obsevation and then select the N_T highest (or lowest) N_T values, where N_T is the number of desired treated households.  I'll first show you how to do this using some fake-data, and then you'll get to do it yourself using real data. 
+
+
+```{r}
+# assignn treatment randomly for a fake data-set
+
+set.seed(962018)
+N <- 1000 # number of observations draws
+N_treat <- 500 #number of desired treated observations
+y_mean <- 40 # mean of fake data-set
+y_sd <- 30 # variance of fake-dataset
+beta_treat <- 2
+
+id.var <- seq(1,N) # id var for fake data
+treatment <- id.var<=500 # defining true treatment
+y_sim <- rnorm(N,mean=y_mean,sd=y_sd) + beta_treat*treatment
+
+library(data.table) # making sure we've called data.table library
+example.data.dt<-data.table(id.var,y_sim,treatment) # creating data-table with fake data
+
+ATE_true <- mean(example.data.dt[treatment==1,y_sim])-mean(example.data.dt[treatment==0,y_sim])
+ATE_true
+```
+
+We can now simulate a fake treatment assignment and compute the ATE under the null that the effect of the NSW program is 0.
+
+```{r}
+example.data.dt[,rand.values:=runif(N,0,1)] # drawing N random numbbers
+example.data.dt <- example.data.dt[order(rand.values)] # ordering tzzhe values of example.data.dtn based on rand.values
+example.data.dt[,new.order:=seq(1,N)] # creating order number based on rnadom draw
+example.data.dt[,treatment_fake:=as.integer(new.order<=N_treat)] # creating fake treatment assignment
+
+ATE<- mean(example.data.dt[treatment_fake==1,y_sim])-mean(example.data.dt[treatment_fake==0,y_sim])
+ATE 
+```
+
+We can then draw a different fake treatment assignment and estimate the ATE.  
+
+```{r}
+example.data.dt[,treatment_fake:=NULL] # deleting previous fake variables
+example.data.dt[,rand.values:=NULL]
+example.data.dt[,new.order:=NULL]
+
+example.data.dt[,rand.values:=runif(N,0,1)] # drawing N random numbbers
+example.data.dt <- example.data.dt[order(rand.values)] # ordering tzzhe values of example.data.dtn based on rand.values
+example.data.dt[,new.order:=seq(1,N)] # creating order number based on rnadom draw
+example.data.dt[,treatment_fake:=as.integer(new.order<=N_treat)] # creating treatment assignment
+
+ATE<- mean(example.data.dt[treatment_fake==1,y_sim])-mean(example.data.dt[treatment_fake==0,y_sim])
+
+
+```
+
+We now perform procedure a number of times (1500) to estimate the distribution of the probability of observing a treatment effect as large as `ATE_true` under the null that there is no treatment effect.
+
+```{r}
+n_sims <- 1500  # Generate 1000 simulations
+
+ATE_estimates <- rep(NA, n_sims)      # Create an empty vector to store the ATE estimates
+
+for(i in 1:n_sims){   # This is called a "for" loop does the activities withinthe 
+                      # brackets (i.e. "{" and "}") n_sims times
+
+  example.data.dt[,rand.values:=runif(N,0,1)] # drawing N random numbbers
+  example.data.dt <- example.data.dt[order(rand.values)] # ordering tzzhe values of example.data.dtn based on rand.values
+  example.data.dt[,new.order:=seq(1,N)] # creating order number based on rnadom draw
+  example.data.dt[,treatment_fake:=as.integer(new.order<=N_treat)] # creating treatment assignment
+
+  ATE<- mean(example.data.dt[treatment_fake==1,y_sim])-mean(example.data.dt[treatment_fake==0,y_sim])
+  
+  ATE_estimates[i]<- ATE
+} # End 'for' loop
+
+
+pvalue<-mean(ATE_estimates>ATE_true) # computing p-value
+pvalue
+```
+
+Now, we want you to use what you just learned to compute the p-value using simulation for the treatment effect estimate for the NSW program that you just computed above. Note that this procedure should use the real outcome data in the NSW file.  Use set.seed(456).  What is the p-value you find? [Hint: you should be able to use much of the code from above.]
+
+```{r}
+library(data.table)
+library(readr)
+nsw <- read_csv("/Users/kevinlin/Documents/Applied/homework/2/LalondeShort.csv")
+ATE_true <- mean(nsw$re78[nsw$treat==1])-mean(nsw$re78[nsw$treat==0])
+ATE_true
+N <- length(nsw$treat)
+N_treat <- sum(nsw$treat)
+set.seed(456)
+n_sims <- 1500
+data.dt <- data.table(nsw)
+ATE_estimates <- rep(NA, n_sims)      
+for(i in 1:n_sims){   
+  data.dt[,rand.values:=runif(N,0,1)] 
+  data.dt <- data.dt[order(rand.values)] 
+  data.dt[,new.order:=seq(1,N)] 
+  data.dt[,treat_sim:=as.integer(new.order<=N_treat)] 
+  ATE<- mean(data.dt[treat_sim==1,re78])-mean(data.dt[treat_sim==0,re78])
+  
+  ATE_estimates[i]<- ATE
+}
+
+pvalue<-mean(ATE_estimates>ATE_true) 
+pvalue
+```
+
+
+Now, compute the p-value using the standard normal approximation.  How does this p-value differ from the one you found above? 
+
+```{r}
+s_error = 670.9967
+difference = 1794.343
+t_stats = difference/s_error
+pvalue_2 <- 1-pnorm(t_stats)
+pvalue_2
+```
+
+Use the p-value you found above using the simmulation method in a sentence (i.e. describe what the p-value means in a sentence)
+Under the null that the effect of the NSW program is 0, the p-value is small, which implies that we should conclude that simulated treatment effect is not likely larger than treatment effect under the null, so the NSW program is not successful.  
+
+
+
+
+
+
+
+
+
+
+
+
